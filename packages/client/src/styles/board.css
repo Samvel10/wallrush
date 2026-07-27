@@ -736,13 +736,35 @@
   }
 }
 
-@media (max-width: 380px) {
+/* Eight controls have to share the width of a small phone. Measured against a
+   360 px viewport: tray 4 × 36 px, then four 34 px icon buttons, gaps included,
+   comes to about 320 px inside a 336 px content box. */
+@media (max-width: 400px) {
+  .game-toolbar {
+    gap: 5px;
+  }
+  .wall-tray {
+    gap: 3px;
+    padding: 3px;
+  }
   .wall-tray-btn {
     width: 36px;
+    height: 38px;
+  }
+  .wall-tray .chip {
+    padding: 2px 5px;
+    gap: 3px;
   }
   .game-toolbar .btn-sm {
-    padding: 0 8px;
+    padding: 0 7px;
+    min-height: 38px;
     font-size: 11px;
+  }
+  .wall-glyph.is-h {
+    width: 18px;
+  }
+  .wall-glyph.is-v {
+    height: 18px;
   }
 }
 

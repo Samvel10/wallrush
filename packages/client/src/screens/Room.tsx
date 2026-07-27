@@ -246,6 +246,25 @@ export function Room({ code }: { code: string }): ReactNode {
         ) : (
           <span className="chip tiny">{online.latencyMs} ms</span>
         )}
+        {/* Destructive actions sit away from the controls the thumb uses. */}
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={() => connection.send({ t: 'game.drawOffer' })}
+          disabled={!game || game.isOver || online.mySeat === null}
+          title={t.game.offerDraw}
+        >
+          ½
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-danger"
+          onClick={() => setConfirmLeave(true)}
+          disabled={!game || game.isOver || online.mySeat === null}
+          title={t.game.resign}
+        >
+          ⚑<span className="label-wide">{t.game.resign}</span>
+        </button>
       </div>
 
       {game ? (
@@ -264,28 +283,6 @@ export function Room({ code }: { code: string }): ReactNode {
                 👁 {t.game.spectating}
               </span>
             ) : undefined
-          }
-          actions={
-            <>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => connection.send({ t: 'game.drawOffer' })}
-                disabled={game.isOver || online.mySeat === null}
-                title={t.game.offerDraw}
-              >
-                ½
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-danger"
-                onClick={() => setConfirmLeave(true)}
-                disabled={game.isOver || online.mySeat === null}
-                title={t.game.resign}
-              >
-                ⚑<span className="label-wide">{t.game.resign}</span>
-              </button>
-            </>
           }
           side={
             <>

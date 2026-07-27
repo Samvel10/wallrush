@@ -154,6 +154,17 @@ export function PlayLocal({
           {botLevel ? `${t.modes.vsBot} · ${t.bot[botLevel]}` : t.home.local}
           {seatCount === 4 ? ` · ${t.setup.fourPlayers}` : ''}
         </h1>
+        {/* Resigning lives here rather than in the toolbar: it is destructive,
+            and the toolbar is where the thumb is during play. */}
+        <button
+          type="button"
+          className="btn btn-sm btn-danger"
+          onClick={() => setConfirmResign(true)}
+          disabled={local.game.isOver}
+          title={t.game.resign}
+        >
+          ⚑<span className="label-wide">{t.game.resign}</span>
+        </button>
       </div>
 
       <GameView
@@ -186,15 +197,6 @@ export function PlayLocal({
             >
               {local.hinting ? <span className="spinner" /> : '💡'}
               <span className="visually-hidden">{t.game.hint}</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-danger"
-              onClick={() => setConfirmResign(true)}
-              disabled={local.game.isOver}
-              title={t.game.resign}
-            >
-              ⚑<span className="label-wide">{t.game.resign}</span>
             </button>
           </>
         }
