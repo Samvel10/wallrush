@@ -406,6 +406,15 @@ export function Room({ code }: { code: string }): ReactNode {
           setShowResult(false);
         }}
         onHome={leave}
+        onReview={
+          online.result?.matchId
+            ? () => {
+                const id = online.result!.matchId!;
+                connection.send({ t: 'room.leave' });
+                go({ name: 'replay', id });
+              }
+            : undefined
+        }
       />
     </div>
   );

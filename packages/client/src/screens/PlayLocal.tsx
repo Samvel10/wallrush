@@ -255,6 +255,7 @@ export function ResultModal({
   onClose,
   onRematch,
   onHome,
+  onReview,
 }: {
   open: boolean;
   winner: number | null;
@@ -266,6 +267,8 @@ export function ResultModal({
   onClose(): void;
   onRematch(): void;
   onHome(): void;
+  /** Opens the stored replay. Absent for offline games, which are not stored. */
+  onReview?(): void;
 }): ReactNode {
   const { t, f } = useI18n();
   const winnerSeat = winner !== null ? seats.find((s) => s.index === winner) : null;
@@ -325,8 +328,12 @@ export function ResultModal({
             {t.game.rematch}
           </button>
         </div>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
-          {t.result.analyse}
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={onReview ?? onClose}
+        >
+          {onReview ? `▶ ${t.profile.replay}` : t.result.analyse}
         </button>
       </div>
     </Modal>

@@ -265,6 +265,12 @@ export const en: Dictionary = {
     timeTitle: 'The clock',
     time:
       'Every player has their own clock. Run out and you lose. There is also a separate limit on a single move.',
+    tabs: {
+      move: 'Moving',
+      wall: 'Walls',
+      jump: 'Jumping',
+      block: 'Sealing in',
+    },
     tipsTitle: 'Tips',
     tips: [
       'Walls are expensive — one wall costs you a whole tempo. Spend one only when it really lengthens your opponent’s route.',

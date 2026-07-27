@@ -26,6 +26,8 @@ export interface RoomResult {
   winner: PlayerIndex | null;
   ending: GameEnding;
   ratings?: { userId: string; before: number; after: number; delta: number }[];
+  /** Set once the match has been stored, so the result screen can link to it. */
+  matchId?: string;
 }
 
 export interface OnlineRoomApi {
@@ -110,7 +112,12 @@ export function useOnlineRoom(myUserId: string | null): OnlineRoomApi {
 
         case 'game.over':
           applyState(msg.state);
-          setResult({ winner: msg.winner, ending: msg.ending, ratings: msg.ratings });
+          setResult({
+            winner: msg.winner,
+            ending: msg.ending,
+            ratings: msg.ratings,
+            matchId: msg.matchId,
+          });
           break;
 
         case 'game.drawOffer':

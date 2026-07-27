@@ -507,13 +507,14 @@ export class Room {
     this.botTimer = null;
     for (const s of this.seats) s.ready = false;
 
-    const ratings = this.settleRatings(winner, ending);
+    const settled = this.settleRatings(winner, ending);
     this.broadcast({
       t: 'game.over',
       winner,
       ending,
       state: this.game.toState(),
-      ratings,
+      ratings: settled.ratings,
+      ...(settled.matchId ? { matchId: settled.matchId } : {}),
     });
     this.emit({ type: 'finished' });
     this.emit({ type: 'update' });
@@ -527,7 +528,10 @@ export class Room {
   private settleRatings(
     winner: number | null,
     ending: GameEnding,
-  ): { userId: string; before: number; after: number; delta: number }[] {
+  ): {
+    ratings: { userId: string; before: number; after: number; delta: number }[];
+    matchId: string | null;
+  } {
     const game = this.game!;
     const out: { userId: string; before: number; after: number; delta: number }[] = [];
     const rows = new Map<number, UserRow>();
@@ -565,8 +569,8 @@ export class Room {
       }
     }
 
+    let matchId: string | null = randomUUID();
     try {
-      const matchId = randomUUID();
       recordMatch(
         {
           id: matchId,
@@ -610,8 +614,9 @@ export class Room {
       );
     } catch {
       // History is a nice-to-have; never let it take a live table down.
+      matchId = null;
     }
-    return out;
+    return { ratings: out, matchId };
   }
 
   abort(reason: GameEnding = 'abort'): void {

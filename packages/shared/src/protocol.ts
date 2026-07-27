@@ -138,6 +138,8 @@ export type ServerMessage =
       ending: GameEnding;
       state: GameState;
       ratings?: { userId: string; before: number; after: number; delta: number }[];
+      /** Id of the stored match, so the result screen can link to its replay. */
+      matchId?: string;
     }
   | { t: 'game.drawOffer'; by: PlayerIndex }
   | { t: 'game.drawDeclined' }

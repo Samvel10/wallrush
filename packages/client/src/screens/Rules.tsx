@@ -60,11 +60,13 @@ export function Rules(): ReactNode {
     setMode(demo === 'wall' || demo === 'block' ? 'wall' : 'move');
   }, [demo]);
 
-  const sections: { key: DemoKey; title: string; body: string }[] = [
-    { key: 'move', title: t.rules.moveTitle, body: t.rules.move },
-    { key: 'wall', title: t.rules.wallTitle, body: t.rules.wall },
-    { key: 'jump', title: t.rules.jumpTitle, body: t.rules.jump },
-    { key: 'block', title: t.rules.blockTitle, body: t.rules.block },
+  // The tab strip needs short labels; the full headings are far too long to fit
+  // four across on a phone.
+  const sections: { key: DemoKey; tab: string; title: string; body: string }[] = [
+    { key: 'move', tab: t.rules.tabs.move, title: t.rules.moveTitle, body: t.rules.move },
+    { key: 'wall', tab: t.rules.tabs.wall, title: t.rules.wallTitle, body: t.rules.wall },
+    { key: 'jump', tab: t.rules.tabs.jump, title: t.rules.jumpTitle, body: t.rules.jump },
+    { key: 'block', tab: t.rules.tabs.block, title: t.rules.blockTitle, body: t.rules.block },
   ];
 
   return (
@@ -92,7 +94,7 @@ export function Rules(): ReactNode {
             aria-pressed={demo === s.key}
             onClick={() => setDemo(s.key)}
           >
-            {s.title}
+            {s.tab}
           </button>
         ))}
       </div>
@@ -111,6 +113,9 @@ export function Rules(): ReactNode {
             onWall={() => undefined}
           />
         </div>
+        <h3 className="center" style={{ fontSize: 'var(--text-base)' }}>
+          {sections.find((s) => s.key === demo)?.title}
+        </h3>
         <p className="muted small center">
           {sections.find((s) => s.key === demo)?.body}
         </p>
