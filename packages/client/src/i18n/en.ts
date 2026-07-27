@@ -231,6 +231,7 @@ export const en: Dictionary = {
     rating: 'Rating',
     games: 'Games',
     empty: 'The leaderboard is still empty.',
+    minGames: 'Registered players appear here after three games.',
     yourRank: 'Your rank',
     tiers: {
       bronze: 'Bronze',

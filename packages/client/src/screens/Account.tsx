@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 
 import { tierOf } from '@wallrush/shared';
 
-import { BackButton, LanguageSwitch, Switch, formatRelative, useToast } from '../components/ui.js';
+import { BackButton, Switch, formatRelative, useToast } from '../components/ui.js';
 import { useI18n, LANGS, dictionaryFor } from '../i18n/index.js';
 import { ApiError, api, type HistoryItem, type LeaderboardRow } from '../net/api.js';
 import { useRouter } from '../state/router.js';
@@ -195,7 +195,7 @@ export function ProfileScreen(): ReactNode {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))',
               gap: 'var(--space-2)',
             }}
           >
@@ -444,7 +444,11 @@ function Stat({
       <div className="nums" style={{ fontWeight: 800, fontSize: 'var(--text-lg)', color: tone }}>
         {value}
       </div>
-      <div className="tiny faint truncate">{label}</div>
+      {/* Wrap rather than truncate: "Հաղթանակների տոկոսը" does not fit on one
+          line in any tile width we would want. */}
+      <div className="tiny faint" style={{ lineHeight: 1.25, textWrap: 'balance' }}>
+        {label}
+      </div>
     </div>
   );
 }
@@ -513,8 +517,8 @@ export function Leaderboard(): ReactNode {
           </table>
         </div>
       )}
-      <p className="center">
-        <LanguageSwitch />
+      <p className="center small muted" style={{ marginTop: 4 }}>
+        {t.leaderboard.minGames}
       </p>
     </div>
   );

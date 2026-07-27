@@ -231,6 +231,7 @@ export const ru: Dictionary = {
     rating: 'Рейтинг',
     games: 'Партии',
     empty: 'Таблица пока пуста.',
+    minGames: 'В таблицу попадают зарегистрированные игроки после трёх партий.',
     yourRank: 'Твоё место',
     tiers: {
       bronze: 'Бронза',
