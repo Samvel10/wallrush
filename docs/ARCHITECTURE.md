@@ -143,9 +143,12 @@ all. That keeps a beginner bot beatable without making it feel broken.
 | novice | 1 | 60 ms | 55 % |
 | easy | 2 | 150 ms | 30 % |
 | medium | 4 | 400 ms | 12 % |
-| hard | 6 | 900 ms | 3.5 % |
+| hard | 5 | 700 ms | 4.5 % |
 | expert | 13 | 1.8 s | 0 |
 | master | 20 | 3.0 s | 0 |
+
+Depth is a ceiling, not a promise: iterative deepening stops when the time
+budget runs out, so `master` typically lands around ply 15 in a middlegame.
 
 Measured head to head, colours alternating: easy beats novice 83 %, medium
 beats easy 92 %, hard beats medium 58 %, and expert-versus-hard lands at 50 %.
