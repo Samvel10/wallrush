@@ -17,6 +17,7 @@ import {
 } from 'react';
 
 import { api, ApiError, storeToken, storedToken, type Profile } from '../net/api.js';
+import { connection } from '../net/socket.js';
 
 interface SessionValue {
   profile: Profile | null;
@@ -55,6 +56,45 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // The socket is the source of truth for who you are while you are a guest:
+  // the server hands out an identity (and a token to keep it) on connect, and
+  // without adopting it the client cannot tell which seat at a table is its own.
+  useEffect(
+    () =>
+      connection.onMessage((msg) => {
+        if (msg.t !== 'welcome') return;
+        if (msg.token) storeToken(msg.token);
+        setProfile((prev) => {
+          if (prev && !prev.guest) return prev;
+          if (prev && prev.id === msg.user.id) return prev;
+          return {
+            id: msg.user.id,
+            name: msg.user.name,
+            username: null,
+            avatar: msg.user.avatar,
+            rating: msg.user.rating,
+            tier: 'bronze',
+            guest: msg.user.guest,
+            games: 0,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            streak: 0,
+            bestStreak: 0,
+            lang: 'hy',
+            createdAt: Date.now(),
+          };
+        });
+        setLoading(false);
+        // Fill in the real statistics for the identity we just adopted.
+        void api
+          .me()
+          .then(({ user }) => setProfile(user))
+          .catch(() => undefined);
+      }),
+    [],
+  );
 
   const signIn = useCallback(async (username: string, password: string) => {
     const { token, user } = await api.login(username, password);

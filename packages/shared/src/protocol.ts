@@ -99,7 +99,18 @@ export type ClientMessage =
 // ------------------------------------------------------------ server → client
 
 export type ServerMessage =
-  | { t: 'welcome'; user: PublicUser; version: number; online: number }
+  | {
+      t: 'welcome';
+      user: PublicUser;
+      version: number;
+      online: number;
+      /**
+       * Issued when the connection had no valid token — i.e. a brand new guest.
+       * Storing it is what lets a guest keep their identity (and their seat)
+       * across a refresh or a dropped connection.
+       */
+      token?: string;
+    }
   | { t: 'pong'; at: number; server: number }
   | { t: 'error'; code: string; message?: string }
   | { t: 'lobby'; rooms: RoomInfo[]; online: number; inGame: number }

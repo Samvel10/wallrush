@@ -19,7 +19,7 @@ import {
   type ServerMessage,
 } from '@wallrush/shared';
 
-import { createGuest, toPublicUser, userFromToken } from './auth.js';
+import { createGuest, issueToken, toPublicUser, userFromToken } from './auth.js';
 import { config } from './config.js';
 import { openDatabase, sweep, touchUser, type UserRow } from './db.js';
 import { Hub } from './hub.js';
@@ -45,7 +45,13 @@ const clients = new Map<string, Client>();
 const byUser = new Map<string, Client>();
 
 function send(client: Client, msg: ServerMessage): void {
-  if (client.socket.readyState !== 1) return;
+  if (client.socket.readyState !== 1) {
+    if (config.debug) {
+      process.stdout.write(`x dropped ${msg.t} to ${client.user.id.slice(0, 8)} (socket ${client.socket.readyState})\n`);
+    }
+    return;
+  }
+  if (config.debug) process.stdout.write(`> ${msg.t} to ${client.user.id.slice(0, 8)}\n`);
   client.socket.send(JSON.stringify(msg));
 }
 
@@ -75,7 +81,14 @@ wss.on('connection', (socket, req) => {
   const lang = url.searchParams.get('lang') ?? 'hy';
 
   let user = userFromToken(token);
-  if (!user) user = createGuest(lang);
+  // A connection with no usable token becomes a fresh guest — and gets a token
+  // back, so the same identity survives a refresh, a dropped socket or a phone
+  // locking its screen mid-game.
+  let issuedToken: string | undefined;
+  if (!user) {
+    user = createGuest(lang);
+    issuedToken = issueToken(user.id);
+  }
   touchUser(user.id);
 
   // One live connection per identity: a second one replaces the first.
@@ -107,6 +120,7 @@ wss.on('connection', (socket, req) => {
     user: toPublicUser(user),
     version: PROTOCOL_VERSION,
     online: hub.onlineCount,
+    ...(issuedToken ? { token: issuedToken } : {}),
   });
 
   // Re-attach to a game that is still running (survives refresh and mobile sleep).
@@ -139,9 +153,13 @@ wss.on('connection', (socket, req) => {
       fail(client, 'bad-message');
       return;
     }
+    if (config.debug) {
+      process.stdout.write(`< ${msg.t} from ${client.user.display_name} (${client.user.id.slice(0, 8)})\n`);
+    }
     try {
       handleMessage(client, msg);
     } catch (err) {
+      if (config.debug) process.stdout.write(`! ${String(err)}\n`);
       fail(client, 'server-error', err instanceof Error ? err.message : undefined);
     }
   });

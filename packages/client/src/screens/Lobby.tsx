@@ -169,6 +169,14 @@ export function QuickMatch(): ReactNode {
     const off = connection.onMessage((msg) => {
       if (msg.t === 'queue.status') setWaiting(msg.waiting);
       else if (msg.t === 'room') go({ name: 'room', code: msg.room.code });
+      else if (msg.t === 'welcome') {
+        // A reconnect drops us out of the queue server-side, so rejoin it.
+        connection.send({
+          t: 'queue.join',
+          config: { size: 9, players: 2, clockMs: 5 * 60 * 1000, incrementMs: 2000 },
+          rated: true,
+        });
+      }
     });
     const tick = window.setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => {

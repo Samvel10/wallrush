@@ -18,6 +18,7 @@ sleep 0.4
 
 cd "$ROOT"
 WALLRUSH_DATA="$DATA" \
+ WALLRUSH_DEBUG="${WALLRUSH_DEBUG:-0}" \
 PORT="$PORT" \
 WALLRUSH_STATIC="$ROOT/packages/client/dist" \
   nohup node packages/server/dist/index.js > "$LOG" 2>&1 &

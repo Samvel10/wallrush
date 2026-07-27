@@ -94,7 +94,7 @@ export function Room({ code }: { code: string }): ReactNode {
       bot: s.bot,
       clockMs: online.clocks[i] ?? s.clockMs,
       connected: s.connected,
-      isMe: s.user?.id === profile?.id,
+      isMe: s.user != null && profile != null && s.user.id === profile.id,
     }));
   }, [room, online.clocks, profile, t]);
 
@@ -176,7 +176,7 @@ export function Room({ code }: { code: string }): ReactNode {
               key={seat.index}
               seat={seat}
               isHost={isHost}
-              isMe={seat.user?.id === profile?.id}
+              isMe={seat.user != null && profile != null && seat.user.id === profile.id}
               onSit={() => connection.send({ t: 'room.seat', seat: seat.index })}
               onAddBot={(level) =>
                 connection.send({ t: 'room.addBot', seat: seat.index, level })

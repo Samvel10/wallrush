@@ -64,9 +64,11 @@ export function GameView({
 
   useEffect(() => setShowPath(settings.showPath), [settings.showPath]);
 
-  // A player who has run out of walls can only walk.
-  const wallsLeft =
-    controllingSeat !== null ? (game.players[controllingSeat]?.walls ?? 0) : 0;
+  // A player who has run out of walls can only walk. Fall back to `mySeat` so
+  // the tray still shows the right count while the board is locked — waiting
+  // for the opponent, or after the game has ended.
+  const traySeat = controllingSeat ?? mySeat;
+  const wallsLeft = traySeat !== null ? (game.players[traySeat]?.walls ?? 0) : 0;
   useEffect(() => {
     if (wallsLeft <= 0 && mode === 'wall') setMode('move');
   }, [wallsLeft, mode]);

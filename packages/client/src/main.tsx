@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { App } from './App.js';
+import { connection } from './net/socket.js';
 import { ToastProvider } from './components/ui.js';
 import { I18nProvider } from './i18n/index.js';
 import { RouterProvider } from './state/router.js';
@@ -31,6 +32,19 @@ createRoot(container).render(
     </SettingsProvider>
   </StrictMode>,
 );
+
+// A tiny diagnostic handle. Support questions about multiplayer almost always
+// come down to "is the socket up?", and this answers that from the console
+// without a debug build.
+declare global {
+  interface Window {
+    __wallrush?: { connection: typeof connection; state(): string };
+  }
+}
+window.__wallrush = {
+  connection,
+  state: () => `${connection.state} latency=${connection.latencyMs}ms`,
+};
 
 // Offline play against a bot should survive a lost connection.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

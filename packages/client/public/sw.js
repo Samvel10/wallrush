@@ -6,7 +6,7 @@
  * alone — it cannot be cached and must not be intercepted.
  */
 
-const VERSION = 'wallrush-v1';
+const VERSION = 'wallrush-__WALLRUSH_BUILD__';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {

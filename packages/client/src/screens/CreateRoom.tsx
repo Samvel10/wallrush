@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { defaultWallsFor, type BoardSize, type GameConfig } from '@wallrush/shared';
 
-import { BackButton, Switch } from '../components/ui.js';
+import { BackButton, Switch, useToast } from '../components/ui.js';
 import { useI18n } from '../i18n/index.js';
 import { connection } from '../net/socket.js';
 import { useRouter } from '../state/router.js';
@@ -27,6 +27,7 @@ const SIZES: BoardSize[] = [5, 7, 9, 11];
 export function CreateRoom(): ReactNode {
   const { t } = useI18n();
   const { go, back } = useRouter();
+  const toast = useToast();
   const [name, setName] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private'>('private');
   const [rated, setRated] = useState(true);
@@ -44,9 +45,26 @@ export function CreateRoom(): ReactNode {
       if (msg.t === 'room') {
         setCreating(false);
         go({ name: 'room', code: msg.room.code });
+      } else if (msg.t === 'error') {
+        // Never leave the button spinning on a refusal — say what happened and
+        // let the player try again.
+        setCreating(false);
+        const key = msg.code.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+        toast.push((t.errors as Record<string, string>)[key] ?? t.errors.generic, 'error');
       }
     });
-  }, [go]);
+  }, [go, toast, t]);
+
+  // A dropped socket must not strand the player on a dead button either.
+  useEffect(() => {
+    if (!creating) return;
+    const id = window.setTimeout(() => {
+      setCreating(false);
+      toast.push(t.errors.network, 'error');
+      connection.connect();
+    }, 6000);
+    return () => window.clearTimeout(id);
+  }, [creating, toast, t]);
 
   const create = () => {
     const config: Partial<GameConfig> = {

@@ -36,6 +36,8 @@ export const config = {
   /** Messages per second allowed per connection before throttling. */
   rateLimit: envInt('WALLRUSH_RATE_LIMIT', 25),
   trustProxy: env('WALLRUSH_TRUST_PROXY', '1') === '1',
+  /** Logs every inbound and outbound realtime message. Development only. */
+  debug: env('WALLRUSH_DEBUG', '0') === '1',
 } as const;
 
 /**
