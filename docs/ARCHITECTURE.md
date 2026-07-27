@@ -147,6 +147,14 @@ all. That keeps a beginner bot beatable without making it feel broken.
 | expert | 13 | 1.8 s | 0 |
 | master | 20 | 3.0 s | 0 |
 
+Measured head to head, colours alternating: easy beats novice 83 %, medium
+beats easy 92 %, hard beats medium 58 %, and expert-versus-hard lands at 50 %.
+That last number is not a bug. In a mirror match between two expert bots the
+player who moves first wins about seven games in eight, so at that strength a
+single game is decided by the draw rather than by the difference between the
+engines. The badges in the UI are set from these results rather than from the
+depth numbers above.
+
 ## Testing strategy
 
 - **Engine** — rules, jumps, wall legality, the "cannot seal anyone in" rule,
@@ -157,4 +165,10 @@ all. That keeps a beginner bot beatable without making it feel broken.
   guarantee that `choose()` never mutates the caller's board.
 - **Server** — a real server on a random port with a throwaway database, driven
   over real WebSockets: full games, illegal moves, resign, draw offers, bots,
-  lobby visibility, matchmaking, chat, Elo settlement and rate limiting.
+  lobby visibility, matchmaking, chat, Elo settlement, rate limiting, losing on
+  time, the per-move limit, reconnecting into a seat mid-game, a second device
+  replacing the first, hostile payloads and path traversal.
+- **Geometry** — the board layout arithmetic, run straight from TypeScript.
+- **Soak** (`scripts/soak.mjs`, run manually against a live server) — 400
+  concurrent games settle in about four seconds with a p99 move latency of
+  18 ms and no leaked rooms.

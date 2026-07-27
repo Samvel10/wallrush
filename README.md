@@ -25,7 +25,7 @@ deep play.
 |---|---|
 | **Online with friends** | Create a table, share a five-character code. Public lobby too. |
 | **Quick play** | Rating-matched queue that widens its window the longer you wait. |
-| **Six bot levels** | Novice → Master. The top level searches ~15 plies deep. |
+| **Six bot levels** | Novice → Master. The top level searches ~15 plies deep, and the ladder is measured, not guessed. |
 | **2 and 4 players** | Classic duel, or a four-way race from all four edges. |
 | **Board sizes** | 5×5, 7×7, 9×9 and 11×11, with configurable walls and clocks. |
 | **Three languages** | Armenian, Russian and English, switchable anywhere. |
@@ -96,12 +96,33 @@ with a thumb.
 ## Testing
 
 ```bash
-npm test          # engine, bot, notation, Elo, and full server integration
+npm test          # 83 tests: engine, bot, notation, Elo, geometry, server
 npm run typecheck
 ```
 
 The server tests boot a real server on a random port with a throwaway database
-and drive it over real WebSockets — the same path a browser takes.
+and drive it over real WebSockets — the same path a browser takes. They cover
+full games, illegal moves, resignation, draw offers, bot seats, matchmaking,
+losing on time, reconnecting into a seat mid-game, hostile payloads and path
+traversal.
+
+There is also a soak test, kept out of `npm test` because it needs a running
+server:
+
+```bash
+npm start &
+node scripts/soak.mjs --games 400
+```
+
+On a single ordinary machine, 400 concurrent games (800 sockets, 5 600 moves):
+
+```
+games:      400 finished, 0 failed
+wall clock: 4.2s
+latency:    p50 2ms  p95 4ms  p99 18ms  max 25ms
+rooms:      0 before -> 0 after      (nothing leaked)
+memory:     87 MB -> 104 MB
+```
 
 ## Notation
 
