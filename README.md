@@ -2,6 +2,8 @@
 
 **Փակի՛ր նրա ճանապարհը** · *Перекрой ему путь* · *Block their way*
 
+[![CI](https://github.com/Samvel10/wallrush/actions/workflows/ci.yml/badge.svg)](https://github.com/Samvel10/wallrush/actions/workflows/ci.yml)
+
 A fast, beautiful, genuinely free web version of Quoridor — playable with
 friends online, against six levels of bot, or two people on one phone.
 Trilingual (հայերեն · русский · English), works offline, no ads, no tracking.
