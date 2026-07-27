@@ -561,9 +561,11 @@ export class Room {
       out.push({ userId: rowA.id, ...changeA });
       out.push({ userId: rowB.id, ...changeB });
     } else {
+      // Unrated (or a bot game, or a guest at the table): keep the win/loss
+      // record, leave the rating alone. Guests count too — registering later
+      // upgrades the same row, and the promise on the sign-up screen is that
+      // nothing is lost.
       for (const [seat, row] of humans) {
-        if (row.guest === 1) continue;
-        // Unrated: keep the win/loss record, leave the rating alone.
         applyMatchResult(row.id, resultFor(seat), row.rating);
         out.push({ userId: row.id, before: row.rating, after: row.rating, delta: 0 });
       }

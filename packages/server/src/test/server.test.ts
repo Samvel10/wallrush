@@ -501,6 +501,47 @@ test('a rated game between two accounts moves both ratings', async () => {
   b.close();
 });
 
+test('an unrated game still updates the win/loss record', async () => {
+  const acc = await postJson<{ token: string; user: { id: string } }>(
+    server.url,
+    '/api/auth/register',
+    { username: 'record_keeper', password: 'password123' },
+  );
+  const a = await TestClient.connect(server.url, acc.body.token);
+  await a.waitFor('welcome');
+
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { size: 5, wallsPerPlayer: 0, clockMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+    bots: [{ seat: 1, level: 'novice' }],
+  });
+  await a.waitFor('room', (m) => m.room.seats[1].bot === 'novice');
+  a.send({ t: 'room.ready', ready: true });
+  const start = await a.waitFor('game.start');
+
+  let state = start.state;
+  for (let i = 0; i < 40; i++) {
+    const game = Game.fromState(state);
+    if (game.isOver) break;
+    if (game.turn === 0) a.send({ t: 'game.move', move: bestStep(game, 0), ply: game.ply });
+    const echo = await a.waitFor('game.move', undefined, 9000);
+    state = echo.state;
+  }
+  await a.waitFor('game.over', undefined, 9000);
+
+  const me = await getJson<{ user: { games: number; wins: number; losses: number } }>(
+    server.url,
+    '/api/me',
+    acc.body.token,
+  );
+  assert.equal(me.body.user.games, 1, 'the game must be counted even when unrated');
+  assert.equal(me.body.user.wins + me.body.user.losses, 1);
+
+  a.close();
+});
+
 test('a malformed message does not take the connection down', async () => {
   const client = await TestClient.connect(server.url);
   await client.waitFor('welcome');
