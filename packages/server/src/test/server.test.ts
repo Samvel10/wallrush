@@ -753,6 +753,45 @@ test('an offline bot game is accepted only if the moves really happened', async 
   assert.equal(anon.status, 401);
 });
 
+test('a rematch restarts the game with the colours swapped', async () => {
+  const a = await TestClient.connect(server.url);
+  const b = await TestClient.connect(server.url);
+  await a.waitFor('welcome');
+  await b.waitFor('welcome');
+
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { size: 5, wallsPerPlayer: 0, clockMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+  });
+  const created = await a.waitFor('room');
+  b.send({ t: 'room.join', code: created.room.code });
+  await b.waitFor('room', (m) => m.room.seats[1].user !== null);
+  a.send({ t: 'room.ready', ready: true });
+  b.send({ t: 'room.ready', ready: true });
+  const first = await a.waitFor('game.start');
+  await b.waitFor('game.start');
+  const seatOfA = first.seat;
+  assert.equal(seatOfA, 0);
+
+  a.send({ t: 'game.resign' });
+  await a.waitFor('game.over');
+  await b.waitFor('game.over');
+
+  a.send({ t: 'room.rematch' });
+  b.send({ t: 'room.rematch' });
+
+  const again = await a.waitFor('game.start', undefined, 8000);
+  const againB = await b.waitFor('game.start', undefined, 8000);
+  assert.equal(again.state.ply, 0, 'a rematch starts from a fresh board');
+  assert.equal(again.seat, 1, 'the player who went first now goes second');
+  assert.equal(againB.seat, 0);
+
+  a.close();
+  b.close();
+});
+
 test('a malformed message does not take the connection down', async () => {
   const client = await TestClient.connect(server.url);
   await client.waitFor('welcome');
