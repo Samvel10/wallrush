@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json --force",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "node --watch --experimental-strip-types src/index.ts",
     "start": "node dist/index.js",

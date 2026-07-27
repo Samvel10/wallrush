@@ -1,5 +1,6 @@
 node_modules/
 dist/
+*.tsbuildinfo
 *.log
 .DS_Store
 data/
@@ -10,4 +11,5 @@ data/
 .env
 .env.local
 packages/client/dist/
+*.tsbuildinfo
 coverage/
