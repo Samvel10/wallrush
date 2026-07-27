@@ -1,0 +1,497 @@
+/** The online table: lobby view before the start, board after it. */
+
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+
+import {
+  BOT_LEVELS,
+  type BotLevel,
+  type Move,
+  type SeatInfo,
+} from '@wallrush/shared';
+
+import type { SeatView } from '../components/GameHud.js';
+import { GameView, MoveLog } from '../components/GameView.js';
+import { BackButton, Modal, useToast } from '../components/ui.js';
+import { useOnlineRoom } from '../hooks/useOnlineRoom.js';
+import { useI18n } from '../i18n/index.js';
+import { connection } from '../net/socket.js';
+import { useRouter } from '../state/router.js';
+import { useSession } from '../state/session.js';
+import { useSettings } from '../state/settings.js';
+import { sounds } from '../state/sound.js';
+import { ResultModal } from './PlayLocal.js';
+
+const EMOTES = ['👏', '😂', '🫡', '🤝', '😮', '🔥', '🤔', '😅'];
+
+export function Room({ code }: { code: string }): ReactNode {
+  const { t, f } = useI18n();
+  const { go, back } = useRouter();
+  const { profile } = useSession();
+  const { settings } = useSettings();
+  const toast = useToast();
+  const online = useOnlineRoom(profile?.id ?? null);
+  const [chatText, setChatText] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [floatingEmote, setFloatingEmote] = useState<
+    { emoji: string; seat: number; id: number } | null
+  >(null);
+  const joinedRef = useRef<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Join once per room code; reconnects re-attach automatically server-side.
+  useEffect(() => {
+    connection.connect();
+    if (joinedRef.current !== code) {
+      joinedRef.current = code;
+      connection.send({ t: 'room.join', code });
+    }
+  }, [code]);
+
+  useEffect(() => {
+    if (!online.error) return;
+    const key = online.error.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+    const message =
+      (t.errors as Record<string, string>)[key] ?? t.errors.generic;
+    toast.push(message, 'error');
+    if (online.error === 'room-not-found') go({ name: 'lobby' }, true);
+    online.clearError();
+  }, [online, toast, t, go]);
+
+  useEffect(() => {
+    if (online.result) {
+      setShowResult(true);
+      if (settings.sound) {
+        const won = online.result.winner !== null && online.result.winner === online.mySeat;
+        (won ? sounds.win : sounds.lose)();
+      }
+    }
+  }, [online.result, online.mySeat, settings.sound]);
+
+  useEffect(() => {
+    const last = online.chat[online.chat.length - 1];
+    if (last?.emote) {
+      const seat =
+        online.room?.seats.find((s) => s.user?.id === last.userId)?.index ?? 0;
+      setFloatingEmote({ emoji: last.text, seat, id: Date.now() });
+      const id = window.setTimeout(() => setFloatingEmote(null), 2300);
+      return () => window.clearTimeout(id);
+    }
+    chatEndRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [online.chat, online.room]);
+
+  const room = online.room;
+  const game = online.game;
+
+  const seats: SeatView[] = useMemo(() => {
+    if (!room) return [];
+    return room.seats.map((s: SeatInfo, i) => ({
+      index: s.index,
+      name: s.user?.name ?? (s.bot ? t.bot[s.bot] : t.room.empty),
+      avatar: s.user?.avatar ?? (s.bot ? '🤖' : '➕'),
+      rating: s.user?.rating,
+      bot: s.bot,
+      clockMs: online.clocks[i] ?? s.clockMs,
+      connected: s.connected,
+      isMe: s.user?.id === profile?.id,
+    }));
+  }, [room, online.clocks, profile, t]);
+
+  const isHost = room?.hostId === profile?.id;
+  const myReady = room?.seats.find((s) => s.user?.id === profile?.id)?.ready ?? false;
+
+  const copyLink = useCallback(async () => {
+    const url = `${window.location.origin}${window.location.pathname}#/room/${code}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'WallRush', text: `${t.room.code}: ${code}`, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast.push(url);
+    }
+  }, [code, t, toast]);
+
+  const leave = useCallback(() => {
+    connection.send({ t: 'room.leave' });
+    joinedRef.current = null;
+    go({ name: 'home' });
+  }, [go]);
+
+  const onMove = useCallback((move: Move) => online.play(move), [online]);
+
+  const sendChat = useCallback(() => {
+    const text = chatText.trim();
+    if (!text) return;
+    connection.send({ t: 'chat', text });
+    setChatText('');
+  }, [chatText]);
+
+  if (!room) {
+    return (
+      <div className="stack" style={{ alignItems: 'center', paddingTop: 48 }}>
+        <span className="spinner" style={{ width: 28, height: 28 }} />
+        <p className="muted">{t.common.loading}</p>
+        <button type="button" className="btn" onClick={() => go({ name: 'lobby' })}>
+          {t.nav.back}
+        </button>
+      </div>
+    );
+  }
+
+  // ------------------------------------------------------------- waiting room
+  if (room.status !== 'playing' && !game) {
+    return (
+      <div className="stack">
+        <div className="row">
+          <BackButton onClick={leave} />
+          <h1 className="grow" style={{ fontSize: 'var(--text-lg)' }}>
+            {room.name || t.room.title}
+          </h1>
+          <span className="chip">{room.rated ? '★' : '☆'}</span>
+        </div>
+
+        <div className="card stack" style={{ textAlign: 'center' }}>
+          <div className="uppercase" style={{ margin: 0 }}>
+            {t.room.code}
+          </div>
+          <div
+            className="mono"
+            style={{ fontSize: 'var(--text-3xl)', letterSpacing: '0.22em', fontWeight: 800 }}
+          >
+            {room.code}
+          </div>
+          <button type="button" className="btn btn-primary" onClick={() => void copyLink()}>
+            {copied ? `✓ ${t.room.copied}` : `🔗 ${t.room.share}`}
+          </button>
+        </div>
+
+        <div className="stack-sm">
+          {room.seats.map((seat) => (
+            <SeatRow
+              key={seat.index}
+              seat={seat}
+              isHost={isHost}
+              isMe={seat.user?.id === profile?.id}
+              onSit={() => connection.send({ t: 'room.seat', seat: seat.index })}
+              onAddBot={(level) =>
+                connection.send({ t: 'room.addBot', seat: seat.index, level })
+              }
+              onRemoveBot={() => connection.send({ t: 'room.removeBot', seat: seat.index })}
+            />
+          ))}
+        </div>
+
+        <div className="card card-tight row row-between">
+          <span className="small muted">
+            {room.config.size}×{room.config.size} · {room.config.wallsPerPlayer}{' '}
+            {t.game.walls} ·{' '}
+            {room.config.clockMs > 0
+              ? `${Math.round(room.config.clockMs / 60000)} ${t.setup.minutes}`
+              : t.setup.unlimited}
+          </span>
+          {room.watchers > 0 ? (
+            <span className="chip">
+              👁 {room.watchers} {t.room.watching}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="row">
+          <button
+            type="button"
+            className={`btn grow ${myReady ? '' : 'btn-primary'}`}
+            onClick={() => connection.send({ t: 'room.ready', ready: !myReady })}
+            disabled={!room.seats.some((s) => s.user?.id === profile?.id)}
+          >
+            {myReady ? `✓ ${t.room.ready}` : t.room.ready}
+          </button>
+          {isHost ? (
+            <button
+              type="button"
+              className="btn btn-primary grow"
+              onClick={() => connection.send({ t: 'room.start' })}
+            >
+              {t.room.start}
+            </button>
+          ) : null}
+        </div>
+
+        <p className="center small muted">{t.room.waiting}</p>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------------- game
+  const controllingSeat =
+    game && online.mySeat !== null && game.turn === online.mySeat && !game.isOver
+      ? online.mySeat
+      : null;
+
+  return (
+    <div className="stack">
+      <div className="row">
+        <BackButton onClick={() => setConfirmLeave(true)} />
+        <h1 className="grow truncate" style={{ fontSize: 'var(--text-lg)' }}>
+          {room.name || `${t.room.title} ${room.code}`}
+        </h1>
+        {online.connectionState !== 'open' ? (
+          <span className="chip" style={{ color: 'var(--warning)' }}>
+            <span className="spinner" /> {t.game.reconnecting}
+          </span>
+        ) : (
+          <span className="chip tiny">{online.latencyMs} ms</span>
+        )}
+      </div>
+
+      {game ? (
+        <GameView
+          game={game}
+          seats={seats}
+          mySeat={online.mySeat}
+          controllingSeat={controllingSeat}
+          clockRunning
+          lastMove={online.lastMove}
+          floatingEmote={floatingEmote}
+          onMove={onMove}
+          actions={
+            <>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => connection.send({ t: 'game.drawOffer' })}
+                disabled={game.isOver || online.mySeat === null}
+                title={t.game.offerDraw}
+              >
+                ½
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-danger"
+                onClick={() => setConfirmLeave(true)}
+                disabled={game.isOver || online.mySeat === null}
+              >
+                {t.game.resign}
+              </button>
+            </>
+          }
+          side={
+            <>
+              <MoveLog game={game} />
+              <div className="card card-tight stack-sm">
+                <div className="uppercase">💬</div>
+                <div className="chat-log">
+                  {online.chat.map((line) => (
+                    <div key={line.id} className="chat-line">
+                      {line.emote ? (
+                        <>
+                          <span className="chat-name">{line.name}</span>
+                          <span className="chat-emote">{line.text}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="chat-name">{line.name}:</span>
+                          {line.text}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+                <div className="emote-bar">
+                  {EMOTES.map((e) => (
+                    <button
+                      key={e}
+                      type="button"
+                      className="emote-btn"
+                      onClick={() => connection.send({ t: 'chat', text: e, emote: true })}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+                <form
+                  className="row"
+                  onSubmit={(ev) => {
+                    ev.preventDefault();
+                    sendChat();
+                  }}
+                >
+                  <input
+                    className="input grow"
+                    value={chatText}
+                    maxLength={240}
+                    onChange={(e) => setChatText(e.target.value)}
+                    placeholder="…"
+                  />
+                  <button type="submit" className="btn btn-icon" aria-label="send">
+                    ➤
+                  </button>
+                </form>
+              </div>
+            </>
+          }
+        />
+      ) : null}
+
+      <Modal
+        open={online.drawOfferBy !== null && online.drawOfferBy !== online.mySeat}
+        onClose={() => connection.send({ t: 'game.drawAnswer', accept: false })}
+        title={t.game.drawOffered}
+      >
+        <div className="row" style={{ marginTop: 16 }}>
+          <button
+            type="button"
+            className="btn grow"
+            onClick={() => connection.send({ t: 'game.drawAnswer', accept: false })}
+          >
+            {t.game.declineDraw}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary grow"
+            onClick={() => connection.send({ t: 'game.drawAnswer', accept: true })}
+          >
+            {t.game.acceptDraw}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal open={confirmLeave} onClose={() => setConfirmLeave(false)} title={t.game.resign}>
+        <div className="row" style={{ marginTop: 16 }}>
+          <button type="button" className="btn grow" onClick={() => setConfirmLeave(false)}>
+            {t.game.cancel}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger grow"
+            onClick={() => {
+              connection.send({ t: 'game.resign' });
+              setConfirmLeave(false);
+            }}
+          >
+            {t.game.resign}
+          </button>
+        </div>
+      </Modal>
+
+      <ResultModal
+        open={showResult && online.result !== null}
+        winner={online.result?.winner ?? null}
+        mySeat={online.mySeat}
+        seats={seats}
+        ending={online.result?.ending ?? null}
+        plies={game?.ply ?? 0}
+        ratingDelta={
+          online.result?.ratings?.find((r) => r.userId === profile?.id) ?? null
+        }
+        onClose={() => setShowResult(false)}
+        onRematch={() => {
+          connection.send({ t: 'room.rematch' });
+          setShowResult(false);
+        }}
+        onHome={leave}
+      />
+    </div>
+  );
+}
+
+function SeatRow({
+  seat,
+  isHost,
+  isMe,
+  onSit,
+  onAddBot,
+  onRemoveBot,
+}: {
+  seat: SeatInfo;
+  isHost: boolean;
+  isMe: boolean;
+  onSit(): void;
+  onAddBot(level: BotLevel): void;
+  onRemoveBot(): void;
+}): ReactNode {
+  const { t } = useI18n();
+  const [picking, setPicking] = useState(false);
+  const occupied = seat.user !== null || seat.bot !== null;
+
+  return (
+    <div
+      className="card card-tight row"
+      style={
+        {
+          borderColor: occupied
+            ? `color-mix(in oklab, var(--p${seat.index}) 40%, var(--border))`
+            : undefined,
+        } as React.CSSProperties
+      }
+    >
+      <span
+        className="seat-dot"
+        style={{ '--seat-color': `var(--p${seat.index})` } as React.CSSProperties}
+      />
+      <div className="grow" style={{ minWidth: 0 }}>
+        <div className="row" style={{ gap: 6 }}>
+          <span className="avatar avatar-sm">
+            {seat.user?.avatar ?? (seat.bot ? '🤖' : '·')}
+          </span>
+          <span className="truncate" style={{ fontWeight: 700 }}>
+            {seat.user?.name ?? (seat.bot ? t.bot[seat.bot] : t.room.empty)}
+          </span>
+          {isMe ? <span className="chip tiny">{t.common.you}</span> : null}
+          {seat.ready ? <span className="chip chip-accent tiny">✓</span> : null}
+        </div>
+        {seat.user ? (
+          <div className="tiny faint">
+            {seat.user.guest ? t.common.guest : `★ ${seat.user.rating}`}
+          </div>
+        ) : null}
+      </div>
+
+      {!occupied ? (
+        <div className="row" style={{ gap: 6 }}>
+          <button type="button" className="btn btn-sm btn-primary" onClick={onSit}>
+            {t.room.sit}
+          </button>
+          {isHost ? (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => setPicking((v) => !v)}
+            >
+              🤖
+            </button>
+          ) : null}
+        </div>
+      ) : seat.bot && isHost ? (
+        <button type="button" className="btn btn-sm btn-ghost" onClick={onRemoveBot}>
+          ✕
+        </button>
+      ) : null}
+
+      {picking ? (
+        <Modal open onClose={() => setPicking(false)} title={t.bot.title}>
+          <div className="stack-sm">
+            {BOT_LEVELS.map((level) => (
+              <button
+                key={level}
+                type="button"
+                className="btn btn-block"
+                onClick={() => {
+                  onAddBot(level);
+                  setPicking(false);
+                }}
+              >
+                {t.bot[level]}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      ) : null}
+    </div>
+  );
+}

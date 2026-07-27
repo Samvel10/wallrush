@@ -59,7 +59,7 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
   easy: {
     level: 'easy',
     depth: 2,
-    timeMs: 140,
+    timeMs: 150,
     rootWalls: 10,
     innerWalls: 3,
     blunder: 0.3,
@@ -69,7 +69,7 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
   },
   medium: {
     level: 'medium',
-    depth: 3,
+    depth: 4,
     timeMs: 400,
     rootWalls: 18,
     innerWalls: 6,
@@ -80,21 +80,21 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
   },
   hard: {
     level: 'hard',
-    depth: 4,
+    depth: 6,
     timeMs: 900,
-    rootWalls: 26,
-    innerWalls: 8,
-    blunder: 0.04,
+    rootWalls: 28,
+    innerWalls: 9,
+    blunder: 0.035,
     blunderSpread: 2,
-    wallShyness: 0.04,
+    wallShyness: 0.03,
     minThinkMs: 300,
   },
   expert: {
     level: 'expert',
-    depth: 5,
+    depth: 13,
     timeMs: 1800,
-    rootWalls: 34,
-    innerWalls: 10,
+    rootWalls: 40,
+    innerWalls: 14,
     blunder: 0,
     blunderSpread: 1,
     wallShyness: 0,
@@ -102,10 +102,10 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
   },
   master: {
     level: 'master',
-    depth: 8,
-    timeMs: 3200,
-    rootWalls: 48,
-    innerWalls: 14,
+    depth: 20,
+    timeMs: 3000,
+    rootWalls: 64,
+    innerWalls: 20,
     blunder: 0,
     blunderSpread: 1,
     wallShyness: 0,
@@ -393,7 +393,17 @@ export class Bot {
       scored.push({ m: { kind: MoveKind.Step, to }, s: 1000 + gain * 100 });
     }
 
-    const wallBudget = depthLeft >= 3 ? this.profile.rootWalls : this.profile.innerWalls;
+    // Breadth is spent where it pays: the root gets the full set of wall ideas,
+    // the first couple of replies get most of it, and the deep tail gets a
+    // handful so the horizon stays cheap.
+    const wallBudget =
+      ply === 0
+        ? this.profile.rootWalls
+        : ply <= 2
+          ? this.profile.innerWalls
+          : depthLeft >= 2
+            ? Math.max(2, this.profile.innerWalls >> 1)
+            : Math.max(1, this.profile.innerWalls >> 2);
     if (player.walls > 0 && wallBudget > 0) {
       const candidates = this.relevantWalls(g, wallBudget, seat);
       const wallScored: { m: Move; s: number }[] = [];

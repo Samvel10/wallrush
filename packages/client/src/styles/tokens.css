@@ -1,0 +1,283 @@
+/*
+ * WallRush — design tokens.
+ *
+ * One palette, two themes. Every colour is expressed as a token so the whole
+ * product can be re-skinned from this file, and so light and dark stay in sync.
+ * The two player colours (azure and ember) were chosen to stay distinguishable
+ * for the most common forms of colour blindness: they differ in lightness as
+ * well as hue, and every piece also carries a shape cue.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* ---------------------------------------------------------- brand ramps */
+  --azure-50: #eef6ff;
+  --azure-100: #d9ecff;
+  --azure-200: #b7dbff;
+  --azure-300: #85c2ff;
+  --azure-400: #4aa2fb;
+  --azure-500: #2081ef;
+  --azure-600: #1163cd;
+  --azure-700: #114ea6;
+  --azure-800: #144484;
+  --azure-900: #153a6d;
+
+  --ember-50: #fff5ed;
+  --ember-100: #ffe8d4;
+  --ember-200: #ffcda8;
+  --ember-300: #ffa970;
+  --ember-400: #ff7a36;
+  --ember-500: #fd5710;
+  --ember-600: #ee3c06;
+  --ember-700: #c52a07;
+  --ember-800: #9c230e;
+  --ember-900: #7e200f;
+
+  --verdant-400: #34c98a;
+  --verdant-500: #16a66c;
+  --verdant-600: #0d8557;
+
+  --violet-400: #a78bfa;
+  --violet-500: #8b5cf6;
+  --violet-600: #7444e8;
+
+  --slate-50: #f7f8fb;
+  --slate-100: #eef0f6;
+  --slate-200: #dfe3ec;
+  --slate-300: #c6ccdb;
+  --slate-400: #98a1b8;
+  --slate-500: #6c7691;
+  --slate-600: #505874;
+  --slate-700: #3c4360;
+  --slate-800: #262c45;
+  --slate-900: #171b2e;
+  --slate-950: #0d101d;
+
+  /* ------------------------------------------------------------ geometry */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* --------------------------------------------------------- typography */
+  --font-sans:
+    'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'Noto Sans Armenian', 'Noto Sans', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', 'JetBrains Mono', 'Cascadia Code', Menlo, Consolas,
+    monospace;
+
+  /* Fluid scale: comfortable on a 360px phone, generous on a desktop. */
+  --text-xs: clamp(0.69rem, 0.66rem + 0.15vw, 0.75rem);
+  --text-sm: clamp(0.8rem, 0.77rem + 0.17vw, 0.875rem);
+  --text-base: clamp(0.94rem, 0.9rem + 0.2vw, 1rem);
+  --text-lg: clamp(1.05rem, 1rem + 0.28vw, 1.19rem);
+  --text-xl: clamp(1.22rem, 1.13rem + 0.44vw, 1.5rem);
+  --text-2xl: clamp(1.5rem, 1.33rem + 0.83vw, 2rem);
+  --text-3xl: clamp(1.9rem, 1.6rem + 1.5vw, 2.75rem);
+
+  --tracking-tight: -0.02em;
+  --tracking-wide: 0.06em;
+  --tracking-wider: 0.14em;
+
+  /* ------------------------------------------------------------- motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 220ms;
+  --dur-slow: 420ms;
+
+  /* --------------------------------------------------------- board sizing */
+  --board-gap-ratio: 0.2;
+}
+
+/* ------------------------------------------------------------ light theme */
+:root,
+:root[data-theme='light'] {
+  --bg: var(--slate-50);
+  --bg-elevated: #ffffff;
+  --bg-sunken: var(--slate-100);
+  --bg-scrim: rgb(23 27 46 / 0.42);
+  --bg-glass: rgb(255 255 255 / 0.78);
+
+  --surface: #ffffff;
+  --surface-2: var(--slate-50);
+  --surface-3: var(--slate-100);
+  --surface-hover: var(--slate-100);
+
+  --border: var(--slate-200);
+  --border-strong: var(--slate-300);
+  --border-subtle: rgb(23 27 46 / 0.07);
+
+  --text: var(--slate-900);
+  --text-muted: var(--slate-500);
+  --text-faint: var(--slate-400);
+  --text-inverse: #ffffff;
+
+  --accent: var(--azure-500);
+  --accent-hover: var(--azure-600);
+  --accent-soft: var(--azure-50);
+  --accent-text: #ffffff;
+
+  --p0: var(--azure-500);
+  --p0-deep: var(--azure-700);
+  --p0-soft: var(--azure-100);
+  --p1: var(--ember-500);
+  --p1-deep: var(--ember-700);
+  --p1-soft: var(--ember-100);
+  --p2: var(--verdant-500);
+  --p2-deep: var(--verdant-600);
+  --p2-soft: #d7f5e8;
+  --p3: var(--violet-500);
+  --p3-deep: var(--violet-600);
+  --p3-soft: #ece4ff;
+
+  --board-bg: #ffffff;
+  --board-cell: #eef1f8;
+  --board-cell-alt: #e8ecf5;
+  --board-line: rgb(23 27 46 / 0.06);
+  --board-slot: rgb(32 129 239 / 0.12);
+  --board-slot-hover: rgb(32 129 239 / 0.28);
+  --wall-color: var(--slate-800);
+  --wall-shadow: rgb(23 27 46 / 0.3);
+
+  --success: var(--verdant-500);
+  --warning: #d97706;
+  --danger: #dc2626;
+
+  --shadow-xs: 0 1px 2px rgb(23 27 46 / 0.06);
+  --shadow-sm: 0 1px 3px rgb(23 27 46 / 0.08), 0 1px 2px rgb(23 27 46 / 0.04);
+  --shadow-md: 0 4px 12px rgb(23 27 46 / 0.08), 0 2px 4px rgb(23 27 46 / 0.04);
+  --shadow-lg: 0 12px 32px rgb(23 27 46 / 0.12), 0 4px 8px rgb(23 27 46 / 0.05);
+  --shadow-xl: 0 24px 64px rgb(23 27 46 / 0.16), 0 8px 16px rgb(23 27 46 / 0.06);
+  --shadow-glow: 0 0 0 4px rgb(32 129 239 / 0.16);
+}
+
+/* ------------------------------------------------------------- dark theme */
+:root[data-theme='dark'] {
+  --bg: var(--slate-950);
+  --bg-elevated: var(--slate-900);
+  --bg-sunken: #070912;
+  --bg-scrim: rgb(5 7 14 / 0.68);
+  --bg-glass: rgb(23 27 46 / 0.72);
+
+  --surface: var(--slate-900);
+  --surface-2: #1b2035;
+  --surface-3: var(--slate-800);
+  --surface-hover: #222842;
+
+  --border: rgb(255 255 255 / 0.09);
+  --border-strong: rgb(255 255 255 / 0.17);
+  --border-subtle: rgb(255 255 255 / 0.05);
+
+  --text: #eef1f8;
+  --text-muted: #9aa3bd;
+  --text-faint: #6b7490;
+  --text-inverse: var(--slate-950);
+
+  --accent: var(--azure-400);
+  --accent-hover: var(--azure-300);
+  --accent-soft: rgb(74 162 251 / 0.14);
+  --accent-text: #06101f;
+
+  --p0: var(--azure-400);
+  --p0-deep: var(--azure-600);
+  --p0-soft: rgb(74 162 251 / 0.2);
+  --p1: var(--ember-400);
+  --p1-deep: var(--ember-600);
+  --p1-soft: rgb(255 122 54 / 0.2);
+  --p2: var(--verdant-400);
+  --p2-deep: var(--verdant-600);
+  --p2-soft: rgb(52 201 138 / 0.2);
+  --p3: var(--violet-400);
+  --p3-deep: var(--violet-600);
+  --p3-soft: rgb(167 139 250 / 0.2);
+
+  --board-bg: #141828;
+  --board-cell: #1a1f33;
+  --board-cell-alt: #171c2e;
+  --board-line: rgb(255 255 255 / 0.07);
+  --board-slot: rgb(74 162 251 / 0.16);
+  --board-slot-hover: rgb(74 162 251 / 0.35);
+  --wall-color: #e5e9f5;
+  --wall-shadow: rgb(0 0 0 / 0.6);
+
+  --success: var(--verdant-400);
+  --warning: #f5a524;
+  --danger: #f26d6d;
+
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 14px rgb(0 0 0 / 0.5), 0 2px 4px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.6), 0 4px 10px rgb(0 0 0 / 0.35);
+  --shadow-xl: 0 28px 72px rgb(0 0 0 / 0.7), 0 8px 20px rgb(0 0 0 / 0.4);
+  --shadow-glow: 0 0 0 4px rgb(74 162 251 / 0.24);
+}
+
+/* Follow the system when the user has not chosen a theme explicitly. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: var(--slate-950);
+    --bg-elevated: var(--slate-900);
+    --bg-sunken: #070912;
+    --bg-scrim: rgb(5 7 14 / 0.68);
+    --bg-glass: rgb(23 27 46 / 0.72);
+    --surface: var(--slate-900);
+    --surface-2: #1b2035;
+    --surface-3: var(--slate-800);
+    --surface-hover: #222842;
+    --border: rgb(255 255 255 / 0.09);
+    --border-strong: rgb(255 255 255 / 0.17);
+    --border-subtle: rgb(255 255 255 / 0.05);
+    --text: #eef1f8;
+    --text-muted: #9aa3bd;
+    --text-faint: #6b7490;
+    --text-inverse: var(--slate-950);
+    --accent: var(--azure-400);
+    --accent-hover: var(--azure-300);
+    --accent-soft: rgb(74 162 251 / 0.14);
+    --accent-text: #06101f;
+    --p0: var(--azure-400);
+    --p0-deep: var(--azure-600);
+    --p0-soft: rgb(74 162 251 / 0.2);
+    --p1: var(--ember-400);
+    --p1-deep: var(--ember-600);
+    --p1-soft: rgb(255 122 54 / 0.2);
+    --p2: var(--verdant-400);
+    --p2-deep: var(--verdant-600);
+    --p2-soft: rgb(52 201 138 / 0.2);
+    --p3: var(--violet-400);
+    --p3-deep: var(--violet-600);
+    --p3-soft: rgb(167 139 250 / 0.2);
+    --board-bg: #141828;
+    --board-cell: #1a1f33;
+    --board-cell-alt: #171c2e;
+    --board-line: rgb(255 255 255 / 0.07);
+    --board-slot: rgb(74 162 251 / 0.16);
+    --board-slot-hover: rgb(74 162 251 / 0.35);
+    --wall-color: #e5e9f5;
+    --wall-shadow: rgb(0 0 0 / 0.6);
+    --success: var(--verdant-400);
+    --warning: #f5a524;
+    --danger: #f26d6d;
+    --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.5), 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 14px rgb(0 0 0 / 0.5), 0 2px 4px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.6), 0 4px 10px rgb(0 0 0 / 0.35);
+    --shadow-xl: 0 28px 72px rgb(0 0 0 / 0.7), 0 8px 20px rgb(0 0 0 / 0.4);
+    --shadow-glow: 0 0 0 4px rgb(74 162 251 / 0.24);
+  }
+}

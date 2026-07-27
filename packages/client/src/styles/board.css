@@ -1,0 +1,708 @@
+/*
+ * WallRush — the board.
+ *
+ * Everything is positioned in percentages of a square container, so one layout
+ * serves a 320 px phone and a 4K monitor with no breakpoints and no redraw
+ * cost. Cells, wall slots, walls and pawns are separate layers stacked in the
+ * order you would build a physical board: felt, grid, slots, walls, pieces.
+ */
+
+.board-frame {
+  position: relative;
+  width: 100%;
+  max-width: min(72vh, 680px);
+  margin-inline: auto;
+  aspect-ratio: 1;
+  border-radius: var(--radius-xl);
+  padding: clamp(8px, 1.6cqw, 16px);
+  background: var(--board-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  container-type: inline-size;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.board-frame.is-locked {
+  cursor: default;
+}
+
+/* Goal edges are tinted with the colour of whoever has to reach them. */
+.board-frame::before,
+.board-frame::after {
+  content: '';
+  position: absolute;
+  inset-inline: var(--radius-lg);
+  height: 3px;
+  border-radius: var(--radius-full);
+  opacity: 0.9;
+}
+.board-frame::before {
+  top: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--goal-top, var(--p0)) 20%,
+    var(--goal-top, var(--p0)) 80%,
+    transparent
+  );
+}
+.board-frame::after {
+  bottom: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--goal-bottom, var(--p1)) 20%,
+    var(--goal-bottom, var(--p1)) 80%,
+    transparent
+  );
+}
+
+.board {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ------------------------------------------------------------------- cells */
+
+.cell {
+  position: absolute;
+  border-radius: clamp(3px, 0.9cqw, 8px);
+  background: var(--board-cell);
+  /* A hairline rim makes the gaps between cells read as grooves — which is
+     exactly what they are: the channels walls slot into. */
+  box-shadow: inset 0 0 0 1px var(--board-line);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.cell.is-goal-0 {
+  background: color-mix(in oklab, var(--p0) 14%, var(--board-cell));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--p0) 22%, transparent);
+}
+.cell.is-goal-1 {
+  background: color-mix(in oklab, var(--p1) 14%, var(--board-cell));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--p1) 22%, transparent);
+}
+.cell.is-goal-2 {
+  background: color-mix(in oklab, var(--p2) 14%, var(--board-cell));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--p2) 22%, transparent);
+}
+.cell.is-goal-3 {
+  background: color-mix(in oklab, var(--p3) 14%, var(--board-cell));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--p3) 22%, transparent);
+}
+.cell.is-last-move {
+  box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent);
+}
+
+.cell-coord {
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-start: 4px;
+  font-size: clamp(7px, 1.15cqw, 11px);
+  font-family: var(--font-mono);
+  color: var(--text-faint);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------- move destinations */
+
+.move-dot {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: none;
+  border-radius: clamp(3px, 0.9cqw, 8px);
+  z-index: 6;
+  -webkit-tap-highlight-color: transparent;
+}
+.move-dot::before {
+  content: '';
+  width: 34%;
+  height: 34%;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--seat-color, var(--accent)) 46%, transparent);
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--seat-color, var(--accent)) 30%, transparent);
+  transition:
+    transform var(--dur-base) var(--ease-spring),
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+  animation: dot-appear var(--dur-slow) var(--ease-spring) backwards;
+}
+.move-dot:hover::before,
+.move-dot:focus-visible::before {
+  transform: scale(1.55);
+  background: var(--seat-color, var(--accent));
+  box-shadow: 0 0 0 6px color-mix(in oklab, var(--seat-color, var(--accent)) 18%, transparent);
+}
+.move-dot:active::before {
+  transform: scale(1.2);
+}
+.move-dot.is-jump::before {
+  width: 46%;
+  height: 46%;
+  background: transparent;
+  border: clamp(2px, 0.5cqw, 4px) solid
+    color-mix(in oklab, var(--seat-color, var(--accent)) 58%, transparent);
+}
+
+@keyframes dot-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ------------------------------------------------------------- wall slots */
+
+/*
+ * Adjacent slots overlap by a cell, so drawing every one as a full-length bar
+ * turns a row boundary into one continuous smear and you cannot tell what you
+ * are about to place. At rest each slot is therefore a short pip centred on its
+ * intersection; hovering (or the first tap on touch) expands it to the actual
+ * two-cell footprint, so the preview always shows exactly what will be placed.
+ */
+.wall-slot {
+  position: absolute;
+  z-index: 5;
+  border: none;
+  background: none;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  display: grid;
+  place-items: center;
+}
+.wall-slot::before {
+  content: '';
+  border-radius: var(--radius-full);
+  background: transparent;
+  transition:
+    width var(--dur-base) var(--ease-out),
+    height var(--dur-base) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.wall-slot.is-h::before {
+  width: 26%;
+  height: var(--slot-thickness);
+}
+.wall-slot.is-v::before {
+  width: var(--slot-thickness);
+  height: 26%;
+}
+.wall-slot.is-available::before {
+  background: var(--board-slot);
+}
+.wall-slot.is-available:hover::before,
+.wall-slot.is-available:focus-visible::before {
+  width: 100%;
+  background: var(--board-slot-hover);
+  box-shadow: 0 2px 8px var(--wall-shadow);
+}
+.wall-slot.is-v.is-available:hover::before,
+.wall-slot.is-v.is-available:focus-visible::before {
+  width: var(--slot-thickness);
+  height: 100%;
+}
+.wall-slot.is-available:active::before {
+  background: var(--accent);
+}
+.wall-slot.is-blocked {
+  cursor: not-allowed;
+}
+.wall-slot.is-blocked::before {
+  background: transparent;
+}
+
+/* ------------------------------------------------------------------ walls */
+
+.wall {
+  position: absolute;
+  z-index: 8;
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--wall-color) 88%, white 12%),
+    var(--wall-color)
+  );
+  box-shadow:
+    0 2px 6px var(--wall-shadow),
+    inset 0 1px 0 rgb(255 255 255 / 0.22);
+  pointer-events: none;
+  animation: wall-drop var(--dur-slow) var(--ease-spring) backwards;
+}
+.wall.is-v {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--wall-color) 88%, white 12%),
+    var(--wall-color)
+  );
+}
+.wall.is-mine {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--p0) 78%, white 22%),
+    var(--p0-deep)
+  );
+}
+.wall.is-theirs {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--p1) 78%, white 22%),
+    var(--p1-deep)
+  );
+}
+.wall.is-latest {
+  box-shadow:
+    0 2px 8px var(--wall-shadow),
+    0 0 0 3px color-mix(in oklab, var(--accent) 30%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+
+.wall.is-preview {
+  opacity: 0.62;
+  animation: none;
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent),
+    0 4px 12px var(--wall-shadow);
+  z-index: 9;
+}
+.wall.is-invalid {
+  background: linear-gradient(180deg, #ff8a8a, var(--danger)) !important;
+  opacity: 0.6;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--danger) 55%, transparent);
+}
+
+@keyframes wall-drop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ------------------------------------------------------------------ pawns */
+
+.pawn {
+  position: absolute;
+  z-index: 10;
+  border-radius: 50%;
+  pointer-events: none;
+  transition:
+    left var(--dur-slow) var(--ease-spring),
+    top var(--dur-slow) var(--ease-spring);
+  display: grid;
+  place-items: center;
+}
+.pawn-body {
+  width: 74%;
+  height: 74%;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      color-mix(in oklab, var(--pawn-color) 30%, white 70%) 0%,
+      var(--pawn-color) 45%,
+      var(--pawn-deep) 100%
+    );
+  box-shadow:
+    0 clamp(2px, 0.6cqw, 5px) clamp(4px, 1.2cqw, 10px) rgb(0 0 0 / 0.28),
+    inset 0 -2px 4px rgb(0 0 0 / 0.2);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+/* A shape cue in addition to colour, so the seats stay distinguishable
+   without relying on hue alone. */
+.pawn-body::after {
+  content: '';
+  width: 30%;
+  height: 30%;
+  background: rgb(255 255 255 / 0.85);
+  opacity: 0.85;
+}
+.pawn.seat-0 .pawn-body::after {
+  border-radius: 50%;
+}
+.pawn.seat-1 .pawn-body::after {
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+.pawn.seat-2 .pawn-body::after {
+  border-radius: 2px;
+}
+.pawn.seat-3 .pawn-body::after {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.pawn.is-active .pawn-body {
+  animation: pawn-breathe 2.4s var(--ease-in-out) infinite;
+}
+@keyframes pawn-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 clamp(2px, 0.6cqw, 5px) clamp(4px, 1.2cqw, 10px) rgb(0 0 0 / 0.28),
+      0 0 0 0 color-mix(in oklab, var(--pawn-color) 42%, transparent),
+      inset 0 -2px 4px rgb(0 0 0 / 0.2);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow:
+      0 clamp(2px, 0.6cqw, 5px) clamp(4px, 1.2cqw, 10px) rgb(0 0 0 / 0.28),
+      0 0 0 clamp(5px, 1.4cqw, 11px) transparent,
+      inset 0 -2px 4px rgb(0 0 0 / 0.2);
+  }
+}
+
+.pawn.is-winner .pawn-body {
+  animation: pawn-win 1s var(--ease-spring) 3;
+}
+@keyframes pawn-win {
+  0%,
+  100% {
+    transform: scale(1) rotate(0);
+  }
+  25% {
+    transform: scale(1.16) rotate(-8deg);
+  }
+  75% {
+    transform: scale(1.16) rotate(8deg);
+  }
+}
+
+/* -------------------------------------------------------------- path hint */
+
+.path-node {
+  position: absolute;
+  z-index: 4;
+  border-radius: 50%;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--seat-color, var(--accent)) 26%, transparent);
+  animation: path-fade var(--dur-slow) var(--ease-out) backwards;
+}
+@keyframes path-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* --------------------------------------------------------------- hud rows */
+
+.seat-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    background-color var(--dur-base) var(--ease-out);
+  min-width: 0;
+}
+.seat-bar.is-turn {
+  border-color: color-mix(in oklab, var(--seat-color) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--seat-color) 14%, transparent);
+  background: color-mix(in oklab, var(--seat-color) 5%, var(--surface));
+}
+.seat-bar.is-offline {
+  opacity: 0.6;
+}
+
+.seat-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--seat-color);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--seat-color) 18%, transparent);
+}
+
+.seat-name {
+  font-weight: 700;
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+
+.seat-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.wall-pips {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+.wall-pip {
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--seat-color);
+  opacity: 0.9;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+.wall-pip.is-spent {
+  opacity: 0.16;
+}
+
+.clock {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-base);
+  font-weight: 700;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out);
+  letter-spacing: -0.02em;
+}
+.clock.is-running {
+  background: color-mix(in oklab, var(--seat-color) 18%, var(--surface-3));
+  color: var(--text);
+}
+.clock.is-low {
+  background: color-mix(in oklab, var(--danger) 20%, transparent);
+  color: var(--danger);
+  animation: clock-warn 1s steps(2, jump-none) infinite;
+}
+@keyframes clock-warn {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* ---------------------------------------------------------------- toolbar */
+
+.game-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.wall-tray {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.wall-tray-btn {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.wall-tray-btn[aria-pressed='true'] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.wall-tray-btn:active {
+  transform: scale(0.95);
+}
+.wall-tray-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.wall-glyph {
+  background: var(--wall-color);
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2);
+}
+.wall-glyph.is-h {
+  width: 28px;
+  height: 7px;
+}
+.wall-glyph.is-v {
+  width: 7px;
+  height: 28px;
+}
+
+/* ------------------------------------------------------------ game layout */
+
+.game-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 940px) {
+  .game-layout {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .game-side {
+    position: sticky;
+    top: 84px;
+  }
+}
+
+.game-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.move-log {
+  max-height: 230px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  display: grid;
+  grid-template-columns: 2.2rem 1fr 1fr;
+  gap: 2px var(--space-2);
+  align-content: start;
+}
+.move-log-num {
+  color: var(--text-faint);
+}
+.move-log-move {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-xs);
+  text-align: start;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.move-log-move:hover {
+  background: var(--surface-hover);
+}
+.move-log-move.is-current {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+.chat-line {
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  word-break: break-word;
+}
+.chat-name {
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-inline-end: var(--space-1);
+}
+.chat-emote {
+  font-size: var(--text-2xl);
+  line-height: 1;
+}
+
+.emote-bar {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.emote-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+  transition:
+    transform var(--dur-fast) var(--ease-spring),
+    background-color var(--dur-fast) var(--ease-out);
+}
+.emote-btn:hover {
+  transform: translateY(-2px) scale(1.08);
+  background: var(--surface-hover);
+}
+
+/* Floating emote that drifts up over the board. */
+.emote-float {
+  position: absolute;
+  z-index: 30;
+  font-size: clamp(28px, 7cqw, 52px);
+  pointer-events: none;
+  animation: emote-rise 2.2s var(--ease-out) forwards;
+}
+@keyframes emote-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.5);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -10%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -120%) scale(0.9);
+  }
+}
+
+/* ------------------------------------------------------------- responsive */
+
+@media (max-width: 460px) {
+  .seat-bar {
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+  .seat-name {
+    font-size: var(--text-xs);
+  }
+  .wall-tray-btn {
+    width: 48px;
+  }
+}
+
+/* Landscape phones: put the board beside the HUD instead of stacking. */
+@media (max-height: 560px) and (orientation: landscape) {
+  .board-frame {
+    max-width: min(92vh, 520px);
+  }
+  .game-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  }
+}
