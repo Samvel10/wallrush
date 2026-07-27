@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push makes an older run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # 22 is the floor (node:sqlite); 24 is what the project is developed on.
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      # The build must work from a clean checkout, not just from a tree that
+      # happens to have dist/ lying around. This is exactly the failure a
+      # committed .tsbuildinfo once caused.
+      - name: Server starts and serves the app
+        run: |
+          WALLRUSH_DATA="$RUNNER_TEMP/wallrush" PORT=8788 \
+            node packages/server/dist/index.js &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8788/api/health > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8788/api/health
+          curl -fsS http://127.0.0.1:8788/ | grep -q '<div id="root">'
+
+      - name: Soak
+        run: |
+          WALLRUSH_DATA="$RUNNER_TEMP/wallrush-soak" PORT=8789 \
+            node packages/server/dist/index.js &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8789/api/health > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/soak.mjs --games 40 --url http://127.0.0.1:8789
