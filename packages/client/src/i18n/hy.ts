@@ -220,6 +220,18 @@ export const hy = {
     saved: 'Պահպանվեց',
     signInToSee: 'Մուտք գործիր՝ պատմությունը և վարկանիշը տեսնելու համար։',
     vs: 'ընդդեմ',
+    analysis: 'Վերլուծություն',
+    analyse: 'Վերլուծել խաղը',
+    analysing: 'Վերլուծվում է…',
+    bestMove: 'Լավագույն քայլը',
+    quality: {
+      best: 'Լավագույնը',
+      good: 'Լավ',
+      inaccuracy: 'Անճշտություն',
+      mistake: 'Սխալ',
+      blunder: 'Կոպիտ սխալ',
+    },
+    lostTempo: 'կորցրած տեմպ',
     replay: 'Դիտել կրկին',
   },
 

@@ -34,6 +34,7 @@ deep play.
 | **Accounts are optional** | Play as a guest forever; sign up to keep history and Elo. |
 | **Works offline** | The bot runs in a Web Worker; the PWA caches the shell. |
 | **Built for phones** | Every screen is designed touch-first, from 320 px up. |
+| **Game review** | Replay any finished game and have the engine mark every inaccuracy, mistake and blunder. |
 
 ## Running it
 
@@ -98,7 +99,7 @@ with a thumb.
 ## Testing
 
 ```bash
-npm test          # 83 tests: engine, bot, notation, Elo, geometry, server
+npm test          # 94 tests: engine, bot, analysis, notation, Elo, geometry, server
 npm run typecheck
 ```
 

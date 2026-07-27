@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 
-import { Bot, Game, type BotLevel, type Move } from '@wallrush/shared';
+import { Bot, Game, qualityOf, type BotLevel, type Move, type MoveQuality } from '@wallrush/shared';
 
-import type { ThinkRequest, ThinkResponse } from '../worker/bot.worker.js';
+import type { ThinkResponse, WorkerRequest } from '../worker/bot.worker.js';
 
 export interface ThinkResult {
   move: Move | null;
@@ -12,10 +12,19 @@ export interface ThinkResult {
   depth: number;
   nodes: number;
   ms: number;
+  analysis?: {
+    best: Move;
+    bestScore: number;
+    playedScore: number;
+    loss: number;
+    quality: MoveQuality;
+    mover: number;
+  };
 }
 
 export function useBotWorker(): {
   think(game: Game, level: BotLevel, opts?: { strict?: boolean; timeMs?: number }): Promise<ThinkResult>;
+  analyse(game: Game, played: Move, level: BotLevel, timeMs?: number): Promise<ThinkResult>;
   cancel(): void;
 } {
   const workerRef = useRef<Worker | null>(null);
@@ -63,8 +72,9 @@ export function useBotWorker(): {
         }
         const id = nextId.current++;
         pending.current.set(id, resolve);
-        const req: ThinkRequest = {
+        const req: WorkerRequest = {
           id,
+          kind: 'think',
           state: game.toState(),
           level,
           seed,
@@ -76,9 +86,43 @@ export function useBotWorker(): {
     [],
   );
 
+  const analyse = useCallback(
+    (game: Game, played: Move, level: BotLevel, timeMs?: number) =>
+      new Promise<ThinkResult>((resolve) => {
+        const worker = workerRef.current;
+        const seed = 0x51ed270b;
+        if (!worker) {
+          const bot = new Bot(level, game.size, game.config.players, seed);
+          const a = bot.analyse(game, played, timeMs);
+          resolve({
+            move: a.best,
+            score: a.bestScore,
+            depth: 0,
+            nodes: 0,
+            ms: 0,
+            analysis: { ...a, quality: qualityOf(a.loss) },
+          });
+          return;
+        }
+        const id = nextId.current++;
+        pending.current.set(id, resolve);
+        const req: WorkerRequest = {
+          id,
+          kind: 'analyse',
+          state: game.toState(),
+          played,
+          level,
+          seed,
+          timeMs,
+        };
+        worker.postMessage(req);
+      }),
+    [],
+  );
+
   const cancel = useCallback(() => {
     pending.current.clear();
   }, []);
 
-  return { think, cancel };
+  return { think, analyse, cancel };
 }

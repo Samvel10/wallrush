@@ -221,6 +221,18 @@ export const en: Dictionary = {
     saved: 'Saved',
     signInToSee: 'Sign in to keep your history and rating.',
     vs: 'vs',
+    analysis: 'Analysis',
+    analyse: 'Analyse the game',
+    analysing: 'Analysing…',
+    bestMove: 'Best move',
+    quality: {
+      best: 'Best',
+      good: 'Good',
+      inaccuracy: 'Inaccuracy',
+      mistake: 'Mistake',
+      blunder: 'Blunder',
+    },
+    lostTempo: 'tempo lost',
     replay: 'Replay',
   },
 

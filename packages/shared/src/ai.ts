@@ -24,6 +24,9 @@ import {
 const INF = 1_000_000;
 const WIN = 100_000;
 
+/** Ceiling for a reported move loss: about ten steps of race advantage. */
+const MAX_REPORTED_LOSS = 1_100;
+
 export interface BotProfile {
   level: BotLevel;
   /** Nominal search depth in plies. */
@@ -651,9 +654,80 @@ export class Bot {
     return [...steps, ...walls];
   }
 
+  /**
+   * How good was the move that was actually played?
+   *
+   * Runs two searches: the best the side to move had available, and the value
+   * of the move they chose (searched from the opponent's side and negated).
+   * The difference is the cost of the decision, in the same units as the
+   * evaluation — roughly 110 points per step of race advantage.
+   */
+  analyse(game: Game, played: Move, timeMs?: number): MoveAnalysis {
+    const budget = timeMs ?? Math.min(this.profile.timeMs, 400);
+    const board = game.clone();
+    const mover = board.turn;
+    const best = this.choose(board, { strict: true, timeMs: budget });
+
+    let playedScore: number;
+    if (movesEqual(best.move, played)) {
+      playedScore = best.score;
+    } else {
+      const after = board.clone();
+      if (!after.apply(played).ok) {
+        return { mover, played, best: best.move, bestScore: best.score, playedScore: best.score, loss: 0 };
+      }
+      if (after.isOver) {
+        // The move ended the game; nothing left to search.
+        playedScore = after.winner === mover ? WIN : -WIN;
+      } else {
+        const reply = this.choose(after, { strict: true, timeMs: budget });
+        playedScore = -reply.score;
+      }
+    }
+
+    return {
+      mover,
+      played,
+      best: best.move,
+      bestScore: best.score,
+      playedScore,
+      // Clamped on purpose. Once a move turns a playable position into a lost
+      // one, the raw difference is a mate score in the tens of thousands, and
+      // averaging that swamps every other move in the game. It is a blunder
+      // either way; exactly how big a blunder stops being meaningful.
+      loss: Math.min(MAX_REPORTED_LOSS, Math.max(0, best.score - playedScore)),
+    };
+  }
+
   reset(): void {
     this.tt.clear();
   }
+}
+
+export interface MoveAnalysis {
+  mover: PlayerIndex;
+  played: Move;
+  /** What the engine would have played instead. */
+  best: Move;
+  bestScore: number;
+  playedScore: number;
+  /** How much the played move gave up, in evaluation points. */
+  loss: number;
+}
+
+/**
+ * Verdict on a single move. The thresholds are in evaluation points, where one
+ * step of race advantage is worth about 110 — so an "inaccuracy" is roughly
+ * half a tempo and a "blunder" is several.
+ */
+export type MoveQuality = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder';
+
+export function qualityOf(loss: number): MoveQuality {
+  if (loss <= 15) return 'best';
+  if (loss <= 60) return 'good';
+  if (loss <= 150) return 'inaccuracy';
+  if (loss <= 400) return 'mistake';
+  return 'blunder';
 }
 
 function movesEqual(a: Move, b: Move): boolean {

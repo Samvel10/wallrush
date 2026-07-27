@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
 
-import { Bot, BOT_PROFILES } from '../ai.js';
+import { Bot, BOT_PROFILES, qualityOf } from '../ai.js';
 import { Game } from '../engine.js';
 import { MoveKind, Orientation, type BotLevel } from '../types.js';
 
@@ -245,6 +245,48 @@ test('the same seed produces the same move', () => {
   const a = new Bot('medium', 9, 2, 4242).choose(g, { timeMs: 200 });
   const b = new Bot('medium', 9, 2, 4242).choose(g, { timeMs: 200 });
   assert.deepEqual(a.move, b.move);
+});
+
+test('analysis rates the best move as best and a bad one as a blunder', () => {
+  const g = new Game();
+  g.players[0].pos = { r: 1, c: 4 };
+  g.players[1].pos = { r: 6, c: 0 };
+  const fresh = Game.fromState(g.toState());
+  fresh.turn = 0;
+  const bot = new Bot('hard', 9, 2, 12);
+
+  // Stepping onto the goal row wins on the spot.
+  const winning = bot.analyse(fresh, { kind: MoveKind.Step, to: { r: 0, c: 4 } }, 300);
+  assert.equal(winning.loss, 0, 'the winning move cannot lose anything');
+  assert.equal(qualityOf(winning.loss), 'best');
+
+  // Walking away from a win instead is, by definition, the worst available.
+  const retreat = bot.analyse(fresh, { kind: MoveKind.Step, to: { r: 2, c: 4 } }, 300);
+  assert.ok(retreat.loss > 0, 'walking away from a forced win must cost something');
+  assert.equal(qualityOf(retreat.loss), 'blunder');
+});
+
+test('a reported loss is bounded so one lost game cannot swamp an average', () => {
+  const g = new Game();
+  g.players[0].pos = { r: 1, c: 4 };
+  g.players[1].pos = { r: 7, c: 4 };
+  const fresh = Game.fromState(g.toState());
+  fresh.turn = 0;
+  const bot = new Bot('hard', 9, 2, 3);
+  const away = bot.analyse(fresh, { kind: MoveKind.Step, to: { r: 2, c: 4 } }, 300);
+  assert.ok(
+    away.loss <= 1_100,
+    `mate-score differences must be clamped, got ${away.loss}`,
+  );
+});
+
+test('quality thresholds are ordered', () => {
+  assert.equal(qualityOf(0), 'best');
+  assert.equal(qualityOf(15), 'best');
+  assert.equal(qualityOf(50), 'good');
+  assert.equal(qualityOf(100), 'inaccuracy');
+  assert.equal(qualityOf(300), 'mistake');
+  assert.equal(qualityOf(900), 'blunder');
 });
 
 test('walls remain legal after the bot considers them', () => {

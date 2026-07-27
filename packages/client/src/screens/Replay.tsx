@@ -9,10 +9,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { Game, MoveKind, moveName, parseTranscript, type GameConfig } from '@wallrush/shared';
+import {
+  Game,
+  MoveKind,
+  moveName,
+  parseTranscript,
+  type GameConfig,
+  type Move,
+  type MoveQuality,
+} from '@wallrush/shared';
 
 import { Board } from '../components/Board.js';
 import { BackButton, formatRelative, useToast } from '../components/ui.js';
+import { useBotWorker } from '../hooks/useBotWorker.js';
 import { useI18n } from '../i18n/index.js';
 import { api } from '../net/api.js';
 import { useRouter } from '../state/router.js';
@@ -39,6 +48,10 @@ export function Replay({ id }: { id: string }): ReactNode {
   const [ply, setPly] = useState(0);
   const [playing, setPlaying] = useState(false);
   const timer = useRef<number | null>(null);
+  const { analyse } = useBotWorker();
+  const [review, setReview] = useState<(MoveReview | null)[]>([]);
+  const [reviewing, setReviewing] = useState(false);
+  const cancelReview = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -72,6 +85,46 @@ export function Replay({ id }: { id: string }): ReactNode {
     }
     return g;
   }, [match, moves, ply]);
+
+  // Analysis walks the game once, asking the engine what it would have played
+  // at each turn and what the move actually chosen was worth. Results stream in
+  // ply by ply so the list fills up as it goes rather than after a long wait.
+  const runReview = useCallback(async () => {
+    if (!match || reviewing) return;
+    setReviewing(true);
+    cancelReview.current = false;
+    setReview(new Array(moves.length).fill(null));
+    const board = new Game(match.config);
+    for (let i = 0; i < moves.length; i++) {
+      if (cancelReview.current) break;
+      const move = moves[i];
+      if (board.isOver) break;
+      const result = await analyse(board, move, 'hard', 260);
+      if (cancelReview.current) break;
+      if (result.analysis) {
+        const a = result.analysis;
+        setReview((prev) => {
+          const next = [...prev];
+          next[i] = {
+            quality: a.quality,
+            loss: a.loss,
+            best: a.best,
+            mover: a.mover,
+          };
+          return next;
+        });
+      }
+      if (!board.apply(move).ok) break;
+    }
+    setReviewing(false);
+  }, [match, moves, analyse, reviewing]);
+
+  useEffect(
+    () => () => {
+      cancelReview.current = true;
+    },
+    [],
+  );
 
   const step = useCallback(
     (delta: number) => {
@@ -130,6 +183,8 @@ export function Replay({ id }: { id: string }): ReactNode {
       </div>
     );
   }
+
+  const current = ply > 0 ? (review[ply - 1] ?? null) : null;
 
   const nameOf = (seat: number): string => {
     const p = match.players.find((x) => x.seat === seat);
@@ -242,6 +297,7 @@ export function Replay({ id }: { id: string }): ReactNode {
                   moves={moves}
                   size={match.config.size}
                   ply={ply}
+                  review={review}
                   onSelect={(p) => {
                     setPlaying(false);
                     setPly(p);
@@ -249,6 +305,54 @@ export function Replay({ id }: { id: string }): ReactNode {
                 />
               ))}
             </div>
+          </div>
+
+          <div className="card card-tight stack-sm">
+            <div className="row row-between">
+              <span className="uppercase" style={{ margin: 0 }}>
+                {t.profile.analysis}
+              </span>
+              {review.some(Boolean) ? (
+                <span className="tiny faint nums">
+                  {review.filter(Boolean).length}/{moves.length}
+                </span>
+              ) : null}
+            </div>
+
+            {review.length === 0 ? (
+              <button type="button" className="btn btn-block btn-sm" onClick={() => void runReview()}>
+                🔎 {t.profile.analyse}
+              </button>
+            ) : (
+              <>
+                {reviewing ? (
+                  <button
+                    type="button"
+                    className="btn btn-block btn-sm"
+                    onClick={() => {
+                      cancelReview.current = true;
+                      setReviewing(false);
+                    }}
+                  >
+                    <span className="spinner" /> {t.profile.analysing}
+                  </button>
+                ) : null}
+                <ReviewSummary review={review} moves={moves} match={match} nameOf={nameOf} />
+                {current ? (
+                  <p className="tiny muted" style={{ margin: 0 }}>
+                    {t.profile.bestMove}:{' '}
+                    <span className="mono">{moveName(current.best, match.config.size)}</span>
+                    {current.loss > 15 ? (
+                      <>
+                        {' · '}
+                        <span className="nums">{(current.loss / 110).toFixed(1)}</span>{' '}
+                        {t.profile.lostTempo}
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
 
           <div className="card card-tight stack-sm">
@@ -286,40 +390,128 @@ export function Replay({ id }: { id: string }): ReactNode {
   );
 }
 
+interface MoveReview {
+  quality: MoveQuality;
+  loss: number;
+  best: Move;
+  mover: number;
+}
+
+/** Chess-style shorthand, so the marker reads at a glance. */
+const QUALITY_MARK: Record<MoveQuality, string> = {
+  best: '',
+  good: '',
+  inaccuracy: '?!',
+  mistake: '?',
+  blunder: '??',
+};
+
+const QUALITY_COLOR: Record<MoveQuality, string> = {
+  best: 'var(--success)',
+  good: 'var(--text-muted)',
+  inaccuracy: 'var(--warning)',
+  mistake: 'var(--p1)',
+  blunder: 'var(--danger)',
+};
+
 function ReplayRow({
   row,
   moves,
   size,
   ply,
+  review,
   onSelect,
 }: {
   row: number;
   moves: ReturnType<typeof parseTranscript>;
   size: number;
   ply: number;
+  review: (MoveReview | null)[];
   onSelect(ply: number): void;
 }): ReactNode {
-  const a = moves[row * 2];
-  const b = moves[row * 2 + 1];
+  const cell = (index: number): ReactNode => {
+    const move = moves[index];
+    if (!move) return null;
+    const r = review[index];
+    const mark = r ? QUALITY_MARK[r.quality] : '';
+    return (
+      <button
+        type="button"
+        className={`move-log-move${ply === index + 1 ? ' is-current' : ''}`}
+        onClick={() => onSelect(index + 1)}
+        title={r ? `${r.quality} · ${(r.loss / 110).toFixed(1)}` : undefined}
+      >
+        {moveName(move, size)}
+        {mark ? (
+          <span style={{ color: r ? QUALITY_COLOR[r.quality] : undefined, fontWeight: 800 }}>
+            {mark}
+          </span>
+        ) : null}
+      </button>
+    );
+  };
   return (
     <>
       <span className="move-log-num">{row + 1}.</span>
-      <button
-        type="button"
-        className={`move-log-move${ply === row * 2 + 1 ? ' is-current' : ''}`}
-        onClick={() => onSelect(row * 2 + 1)}
-      >
-        {a ? moveName(a, size) : ''}
-      </button>
-      <button
-        type="button"
-        className={`move-log-move${ply === row * 2 + 2 ? ' is-current' : ''}`}
-        onClick={() => onSelect(row * 2 + 2)}
-        disabled={!b}
-      >
-        {b ? moveName(b, size) : ''}
-      </button>
+      {cell(row * 2) ?? <span />}
+      {cell(row * 2 + 1) ?? <span />}
     </>
+  );
+}
+
+/** Per-player tally of how the game was actually played. */
+function ReviewSummary({
+  review,
+  moves,
+  match,
+  nameOf,
+}: {
+  review: (MoveReview | null)[];
+  moves: ReturnType<typeof parseTranscript>;
+  match: MatchData;
+  nameOf(seat: number): string;
+}): ReactNode {
+  const { t } = useI18n();
+  const seats = Array.from({ length: match.config.players }, (_, seat) => {
+    const mine = review.filter((r, i) => r && i % match.config.players === seat) as MoveReview[];
+    const count = (q: MoveQuality) => mine.filter((r) => r.quality === q).length;
+    const avgLoss = mine.length
+      ? mine.reduce((sum, r) => sum + r.loss, 0) / mine.length / 110
+      : 0;
+    return { seat, mine, count, avgLoss };
+  });
+
+  return (
+    <div className="stack-sm">
+      {seats.map(({ seat, mine, count, avgLoss }) =>
+        mine.length === 0 ? null : (
+          <div key={seat} className="stack-sm" style={{ gap: 2 }}>
+            <div className="row row-between">
+              <span className="small truncate" style={{ color: `var(--p${seat})`, fontWeight: 700 }}>
+                {nameOf(seat)}
+              </span>
+              <span className="tiny faint nums" title={t.profile.lostTempo}>
+                ⌀ {avgLoss.toFixed(2)}
+              </span>
+            </div>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              {(['best', 'good', 'inaccuracy', 'mistake', 'blunder'] as MoveQuality[]).map((q) =>
+                count(q) === 0 ? null : (
+                  <span
+                    key={q}
+                    className="chip tiny"
+                    style={{ color: QUALITY_COLOR[q], borderColor: 'transparent' }}
+                    title={t.profile.quality[q]}
+                  >
+                    {t.profile.quality[q]} <span className="nums">{count(q)}</span>
+                  </span>
+                ),
+              )}
+            </div>
+          </div>
+        ),
+      )}
+    </div>
   );
 }
 

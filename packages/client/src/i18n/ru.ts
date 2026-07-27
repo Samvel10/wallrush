@@ -221,6 +221,18 @@ export const ru: Dictionary = {
     saved: 'Сохранено',
     signInToSee: 'Войди, чтобы сохранять историю и рейтинг.',
     vs: 'против',
+    analysis: 'Разбор',
+    analyse: 'Разобрать партию',
+    analysing: 'Разбираем…',
+    bestMove: 'Лучший ход',
+    quality: {
+      best: 'Лучший',
+      good: 'Хороший',
+      inaccuracy: 'Неточность',
+      mistake: 'Ошибка',
+      blunder: 'Грубая ошибка',
+    },
+    lostTempo: 'потерянный темп',
     replay: 'Пересмотреть',
   },
 
