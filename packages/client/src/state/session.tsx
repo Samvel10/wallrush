@@ -12,6 +12,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -35,6 +36,9 @@ const SessionContext = createContext<SessionValue | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }): ReactNode {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const knownId = useRef<string | null>(null);
+  /** Guards against the boot refresh and the welcome message both fetching. */
+  const fetching = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!storedToken()) {
@@ -42,13 +46,16 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
       setLoading(false);
       return;
     }
+    fetching.current = true;
     try {
       const { user } = await api.me();
+      knownId.current = user.id;
       setProfile(user);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) storeToken(null);
       setProfile(null);
     } finally {
+      fetching.current = false;
       setLoading(false);
     }
   }, []);
@@ -60,11 +67,17 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
   // The socket is the source of truth for who you are while you are a guest:
   // the server hands out an identity (and a token to keep it) on connect, and
   // without adopting it the client cannot tell which seat at a table is its own.
+  //
+  // Reconnects re-send `welcome`, so the identity is only re-read from the API
+  // when it actually changed — otherwise every dropped socket would cost a
+  // needless round trip.
   useEffect(
     () =>
       connection.onMessage((msg) => {
         if (msg.t !== 'welcome') return;
         if (msg.token) storeToken(msg.token);
+        if (knownId.current === msg.user.id) return;
+        knownId.current = msg.user.id;
         setProfile((prev) => {
           if (prev && !prev.guest) return prev;
           if (prev && prev.id === msg.user.id) return prev;
@@ -87,11 +100,17 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
           };
         });
         setLoading(false);
-        // Fill in the real statistics for the identity we just adopted.
+        // Fill in the real statistics for the identity we just adopted — unless
+        // the boot-time refresh is already on its way for the same account.
+        if (fetching.current) return;
+        fetching.current = true;
         void api
           .me()
           .then(({ user }) => setProfile(user))
-          .catch(() => undefined);
+          .catch(() => undefined)
+          .finally(() => {
+            fetching.current = false;
+          });
       }),
     [],
   );
@@ -99,6 +118,7 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
   const signIn = useCallback(async (username: string, password: string) => {
     const { token, user } = await api.login(username, password);
     storeToken(token);
+    knownId.current = user.id;
     setProfile(user);
   }, []);
 
@@ -109,6 +129,7 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
         guestToken: storedToken() ?? undefined,
       });
       storeToken(token);
+      knownId.current = user.id;
       setProfile(user);
     },
     [],
@@ -121,6 +142,7 @@ export function SessionProvider({ children }: { children: ReactNode }): ReactNod
       /* the token is being discarded anyway */
     }
     storeToken(null);
+    knownId.current = null;
     setProfile(null);
   }, []);
 

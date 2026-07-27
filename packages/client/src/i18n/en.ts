@@ -148,6 +148,7 @@ export const en: Dictionary = {
     hint: 'Hint',
     showPath: 'Show my route',
     hidePath: 'Hide route',
+    chat: 'Message',
     moveList: 'Moves',
     spectating: 'You are watching',
     reconnecting: 'Reconnecting…',

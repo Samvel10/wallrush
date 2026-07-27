@@ -4,14 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import {
   BOT_LEVELS,
+  defaultWallsFor,
+  type BoardSize,
   type BotLevel,
   type Move,
+  type RoomInfo,
   type SeatInfo,
 } from '@wallrush/shared';
 
 import type { SeatView } from '../components/GameHud.js';
 import { GameView, MoveLog } from '../components/GameView.js';
-import { BackButton, Modal, useToast } from '../components/ui.js';
+import { BackButton, Modal, Switch, useToast } from '../components/ui.js';
 import { useOnlineRoom } from '../hooks/useOnlineRoom.js';
 import { useI18n } from '../i18n/index.js';
 import { connection } from '../net/socket.js';
@@ -196,20 +199,7 @@ export function Room({ code }: { code: string }): ReactNode {
           ))}
         </div>
 
-        <div className="card card-tight row row-between">
-          <span className="small muted">
-            {room.config.size}×{room.config.size} · {room.config.wallsPerPlayer}{' '}
-            {t.game.walls} ·{' '}
-            {room.config.clockMs > 0
-              ? `${Math.round(room.config.clockMs / 60000)} ${t.setup.minutes}`
-              : t.setup.unlimited}
-          </span>
-          {room.watchers > 0 ? (
-            <span className="chip">
-              👁 {room.watchers} {t.room.watching}
-            </span>
-          ) : null}
-        </div>
+        <RoomSetup room={room} isHost={isHost} />
 
         <div className="row">
           <button
@@ -294,7 +284,7 @@ export function Room({ code }: { code: string }): ReactNode {
             <>
               <MoveLog game={game} />
               <div className="card card-tight stack-sm">
-                <div className="uppercase">💬</div>
+                <div className="uppercase">{t.game.chat}</div>
                 <div className="chat-log">
                   {online.chat.map((line) => (
                     <div key={line.id} className="chat-line">
@@ -338,6 +328,7 @@ export function Room({ code }: { code: string }): ReactNode {
                     maxLength={240}
                     onChange={(e) => setChatText(e.target.value)}
                     placeholder="…"
+                    aria-label={t.game.chat}
                   />
                   <button type="submit" className="btn btn-icon" aria-label="send">
                     ➤
@@ -416,6 +407,140 @@ export function Room({ code }: { code: string }): ReactNode {
             : undefined
         }
       />
+    </div>
+  );
+}
+
+/**
+ * The host can still change the format while everyone is waiting — nobody
+ * should have to tear the room down and re-share a code just to switch to a
+ * bigger board.
+ */
+function RoomSetup({ room, isHost }: { room: RoomInfo; isHost: boolean }): ReactNode {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const summary = `${room.config.size}×${room.config.size} · ${room.config.wallsPerPlayer} ${t.game.walls} · ${
+    room.config.clockMs > 0
+      ? `${Math.round(room.config.clockMs / 60000)} ${t.setup.minutes}`
+      : t.setup.unlimited
+  }`;
+
+  const patch = (config: Partial<RoomInfo['config']>, rated?: boolean) =>
+    connection.send({ t: 'room.config', config, rated });
+
+  return (
+    <div className="card card-tight stack-sm">
+      <div className="row row-between">
+        <span className="small muted">{summary}</span>
+        <div className="row" style={{ gap: 6 }}>
+          {room.watchers > 0 ? (
+            <span className="chip">
+              👁 {room.watchers} {t.room.watching}
+            </span>
+          ) : null}
+          {isHost ? (
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+            >
+              ⚙ {t.settings.title}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {isHost && open ? (
+        <div className="stack-sm" style={{ paddingTop: 6 }}>
+          <div className="field">
+            <span className="field-label">{t.setup.players}</span>
+            <div className="segmented segmented-block">
+              {([2, 4] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className="segmented-item"
+                  aria-pressed={room.config.players === n}
+                  onClick={() =>
+                    patch({ players: n, wallsPerPlayer: defaultWallsFor(n, room.config.size) })
+                  }
+                >
+                  {n === 2 ? t.setup.twoPlayers : t.setup.fourPlayers}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <span className="field-label">{t.setup.boardSize}</span>
+            <div className="segmented segmented-block">
+              {([5, 7, 9, 11] as BoardSize[]).map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  className="segmented-item"
+                  aria-pressed={room.config.size === size}
+                  onClick={() =>
+                    patch({ size, wallsPerPlayer: defaultWallsFor(room.config.players, size) })
+                  }
+                >
+                  {size}×{size}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <label className="field-label" htmlFor="room-walls">
+              {t.setup.walls}: <span className="nums">{room.config.wallsPerPlayer}</span>
+            </label>
+            <input
+              id="room-walls"
+              type="range"
+              min={0}
+              max={room.config.size >= 9 ? 14 : 8}
+              value={room.config.wallsPerPlayer}
+              onChange={(e) => patch({ wallsPerPlayer: Number(e.target.value) })}
+              style={{ width: '100%', accentColor: 'var(--accent)' }}
+            />
+          </div>
+
+          <div className="field">
+            <span className="field-label">{t.setup.time}</span>
+            <div className="segmented segmented-block">
+              {[
+                { label: `3+2`, clockMs: 180_000, incrementMs: 2000, moveTimeoutMs: 20_000 },
+                { label: `5+3`, clockMs: 300_000, incrementMs: 3000, moveTimeoutMs: 30_000 },
+                { label: `10+5`, clockMs: 600_000, incrementMs: 5000, moveTimeoutMs: 60_000 },
+                { label: '∞', clockMs: 0, incrementMs: 0, moveTimeoutMs: 0 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  className="segmented-item"
+                  aria-pressed={room.config.clockMs === preset.clockMs}
+                  onClick={() =>
+                    patch({
+                      clockMs: preset.clockMs,
+                      incrementMs: preset.incrementMs,
+                      moveTimeoutMs: preset.moveTimeoutMs,
+                    })
+                  }
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Switch
+            checked={room.rated}
+            onChange={(rated) => patch({}, rated)}
+            label={t.setup.rated}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

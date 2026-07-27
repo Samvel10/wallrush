@@ -15,7 +15,6 @@ import { Room } from './screens/Room.js';
 import { Replay } from './screens/Replay.js';
 import { Rules } from './screens/Rules.js';
 import { useRouter, type Route } from './state/router.js';
-import { useSession } from './state/session.js';
 import { setSoundEnabled } from './state/sound.js';
 import { useSettings } from './state/settings.js';
 
@@ -23,19 +22,15 @@ export function App(): ReactNode {
   const { route, go } = useRouter();
   const { t } = useI18n();
   const { settings } = useSettings();
-  const { refresh } = useSession();
 
   useEffect(() => setSoundEnabled(settings.sound), [settings.sound]);
 
   // Keep one socket for the whole session: it carries the guest identity, the
-  // lobby feed and any game already in progress.
+  // lobby feed and any game already in progress. The session provider listens
+  // for the welcome message itself, so there is nothing to wire up here.
   useEffect(() => {
     connection.connect();
-    const off = connection.onMessage((msg) => {
-      if (msg.t === 'welcome') void refresh();
-    });
-    return off;
-  }, [refresh]);
+  }, []);
 
   const inGame =
     route.name === 'play-bot' ||

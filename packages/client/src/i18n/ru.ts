@@ -148,6 +148,7 @@ export const ru: Dictionary = {
     hint: 'Подсказка',
     showPath: 'Показать мой путь',
     hidePath: 'Скрыть путь',
+    chat: 'Сообщение',
     moveList: 'Ходы',
     spectating: 'Ты наблюдаешь',
     reconnecting: 'Восстанавливаем связь…',

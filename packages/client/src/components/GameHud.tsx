@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { BOT_PROFILES, type BotLevel, type Game } from '@wallrush/shared';
+import { BOT_RATING, type BotLevel, type Game } from '@wallrush/shared';
 
 import { useI18n } from '../i18n/index.js';
 import { formatClock } from './ui.js';
@@ -214,13 +214,5 @@ export function botLabel(level: BotLevel, dict: ReturnType<typeof useI18n>['t'])
 }
 
 export function botRatingOf(level: BotLevel): number {
-  const table: Record<BotLevel, number> = {
-    novice: 700,
-    easy: 1000,
-    medium: 1350,
-    hard: 1650,
-    expert: 1950,
-    master: 2300,
-  };
-  return table[level] ?? BOT_PROFILES[level].depth * 200;
+  return BOT_RATING[level] ?? 1200;
 }

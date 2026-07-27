@@ -147,6 +147,7 @@ export const hy = {
     hint: 'Հուշում',
     showPath: 'Ցույց տալ ուղին',
     hidePath: 'Թաքցնել ուղին',
+    chat: 'Հաղորդագրություն',
     moveList: 'Քայլերի ցանկ',
     spectating: 'Դու դիտում ես',
     reconnecting: 'Վերականգնվում է կապը…',

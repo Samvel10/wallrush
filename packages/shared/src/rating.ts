@@ -62,12 +62,20 @@ export function tierOf(rating: number): RatingTier {
   return 'bronze';
 }
 
-/** Approximate rating a bot level plays at, used to seed bot-game Elo. */
+/**
+ * Roughly where each bot level plays, shown in the UI as an approximation.
+ *
+ * These are anchored on measured head-to-head results between the levels, not
+ * on wishful thinking: the gap between `hard`, `expert` and `master` is real
+ * but modest, because at that strength the first-move advantage dominates a
+ * single game. Deliberately conservative — a bot that plays above its badge is
+ * a nicer surprise than one that plays below it.
+ */
 export const BOT_RATING: Record<string, number> = {
-  novice: 700,
-  easy: 1000,
-  medium: 1350,
-  hard: 1650,
-  expert: 1950,
-  master: 2300,
+  novice: 650,
+  easy: 950,
+  medium: 1300,
+  hard: 1550,
+  expert: 1750,
+  master: 1950,
 };
