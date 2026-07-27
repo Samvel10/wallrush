@@ -144,8 +144,9 @@ export function PlayLocal({
               className="btn btn-sm btn-danger"
               onClick={() => setConfirmResign(true)}
               disabled={local.game.isOver}
+              title={t.game.resign}
             >
-              {t.game.resign}
+              ⚑<span className="label-wide">{t.game.resign}</span>
             </button>
           </>
         }

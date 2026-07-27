@@ -83,7 +83,7 @@ export function Rules(): ReactNode {
         <p className="muted">{t.rules.turn}</p>
       </div>
 
-      <div className="segmented segmented-block" style={{ overflowX: 'auto' }}>
+      <div className="segmented segmented-block scroll-x">
         {sections.map((s) => (
           <button
             key={s.key}

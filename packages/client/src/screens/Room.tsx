@@ -274,8 +274,9 @@ export function Room({ code }: { code: string }): ReactNode {
                 className="btn btn-sm btn-danger"
                 onClick={() => setConfirmLeave(true)}
                 disabled={game.isOver || online.mySeat === null}
+                title={t.game.resign}
               >
-                {t.game.resign}
+                ⚑<span className="label-wide">{t.game.resign}</span>
               </button>
             </>
           }

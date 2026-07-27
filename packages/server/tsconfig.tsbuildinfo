@@ -1,1 +1,1 @@
-{"root":["./src/auth.ts","./src/config.ts","./src/db.ts","./src/http.ts","./src/hub.ts","./src/index.ts","./src/room.ts"],"version":"5.9.3"}
+{"root":["./src/auth.ts","./src/config.ts","./src/db.ts","./src/http.ts","./src/hub.ts","./src/index.ts","./src/room.ts","./src/test/harness.ts","./src/test/server.test.ts"],"version":"5.9.3"}

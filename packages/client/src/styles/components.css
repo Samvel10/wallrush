@@ -680,7 +680,7 @@
   bottom: 0;
   z-index: 40;
   display: flex;
-  background: var(--bg-glass);
+  background: color-mix(in oklab, var(--bg-glass) 82%, var(--surface));
   backdrop-filter: blur(14px) saturate(1.4);
   -webkit-backdrop-filter: blur(14px) saturate(1.4);
   border-top: 1px solid var(--border-subtle);
@@ -743,6 +743,29 @@
 }
 
 /* ------------------------------------------------------------------- misc */
+
+/* Long button labels collapse to their icon on very narrow screens. */
+@media (max-width: 480px) {
+  .label-wide {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
+/* Horizontally scrollable strips should not show a scrollbar chrome. */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
 
 .divider {
   height: 1px;

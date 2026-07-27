@@ -511,6 +511,9 @@
   justify-content: center;
   gap: var(--space-2);
   flex-wrap: wrap;
+  position: sticky;
+  bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
+  z-index: 20;
 }
 
 .wall-tray {
@@ -684,7 +687,8 @@
 
 /* ------------------------------------------------------------- responsive */
 
-@media (max-width: 460px) {
+/* Narrow phones: keep the whole toolbar on one thumb-reachable row. */
+@media (max-width: 480px) {
   .seat-bar {
     padding: var(--space-2);
     gap: var(--space-2);
@@ -692,8 +696,36 @@
   .seat-name {
     font-size: var(--text-xs);
   }
+  .game-toolbar {
+    gap: 6px;
+  }
+  .wall-tray {
+    gap: 4px;
+    padding: 4px;
+  }
   .wall-tray-btn {
-    width: 48px;
+    width: 42px;
+    height: 40px;
+  }
+  .game-toolbar .btn-sm {
+    padding: 0 10px;
+    min-height: 40px;
+  }
+  .wall-glyph.is-h {
+    width: 22px;
+  }
+  .wall-glyph.is-v {
+    height: 22px;
+  }
+}
+
+@media (max-width: 380px) {
+  .wall-tray-btn {
+    width: 36px;
+  }
+  .game-toolbar .btn-sm {
+    padding: 0 8px;
+    font-size: 11px;
   }
 }
 
