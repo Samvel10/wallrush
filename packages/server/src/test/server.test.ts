@@ -542,6 +542,134 @@ test('an unrated game still updates the win/loss record', async () => {
   a.close();
 });
 
+test('running out of time loses the game', async () => {
+  const a = await TestClient.connect(server.url);
+  await a.waitFor('welcome');
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    // A two-second clock: long enough to start, short enough to test.
+    config: { size: 5, wallsPerPlayer: 0, clockMs: 2000, incrementMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+    bots: [{ seat: 1, level: 'novice' }],
+  });
+  await a.waitFor('room', (m) => m.room.seats[1].bot === 'novice');
+  a.send({ t: 'room.ready', ready: true });
+  await a.waitFor('game.start');
+
+  // Never move. The clock must run out and hand the win to the bot.
+  const over = await a.waitFor('game.over', undefined, 12_000);
+  assert.equal(over.ending, 'timeout');
+  assert.equal(over.winner, 1, 'the seat that still had time wins');
+  a.close();
+});
+
+test('a per-move limit does not end the game, it just plays a move', async () => {
+  const a = await TestClient.connect(server.url);
+  await a.waitFor('welcome');
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    // No overall clock, but a very short per-move cap.
+    config: { size: 5, wallsPerPlayer: 0, clockMs: 0, incrementMs: 0, moveTimeoutMs: 1200 },
+    rated: false,
+    bots: [{ seat: 1, level: 'novice' }],
+  });
+  await a.waitFor('room', (m) => m.room.seats[1].bot === 'novice');
+  a.send({ t: 'room.ready', ready: true });
+  const start = await a.waitFor('game.start');
+  assert.equal(start.state.turn, 0);
+
+  // Sit on our hands: the server should play for us rather than forfeit.
+  const played = await a.waitFor('game.move', (m) => m.by === 0, 10_000);
+  assert.ok(played, 'the server plays a move when the per-move limit expires');
+  const after = Game.fromState(played.state);
+  assert.equal(after.isOver, false, 'a slow move must not end the game');
+  a.close();
+});
+
+test('a player who reconnects keeps their seat and sees the position', async () => {
+  const acc = await postJson<{ token: string }>(server.url, '/api/auth/register', {
+    username: 'returning_player',
+    password: 'password123',
+  });
+  const first = await TestClient.connect(server.url, acc.body.token);
+  await first.waitFor('welcome');
+  first.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { size: 5, wallsPerPlayer: 1, clockMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+    bots: [{ seat: 1, level: 'novice' }],
+  });
+  const created = await first.waitFor('room', (m) => m.room.seats[1].bot === 'novice');
+  first.send({ t: 'room.ready', ready: true });
+  const start = await first.waitFor('game.start');
+  const game = Game.fromState(start.state);
+  first.send({ t: 'game.move', move: bestStep(game, 0), ply: 0 });
+  await first.waitFor('game.move', (m) => m.by === 0);
+
+  // Simulate a refresh: drop the socket, come back with the same token.
+  first.close();
+  await new Promise((r) => setTimeout(r, 250));
+  const second = await TestClient.connect(server.url, acc.body.token);
+  await second.waitFor('welcome');
+  const resumed = await second.waitFor('game.start', undefined, 6000);
+  assert.equal(resumed.room.code, created.room.code, 'same table');
+  assert.equal(resumed.seat, 0, 'same seat');
+  assert.ok(resumed.state.ply >= 1, 'the moves already played are still there');
+  second.close();
+});
+
+test('a second connection for the same account replaces the first', async () => {
+  const acc = await postJson<{ token: string }>(server.url, '/api/auth/register', {
+    username: 'two_devices',
+    password: 'password123',
+  });
+  const one = await TestClient.connect(server.url, acc.body.token);
+  await one.waitFor('welcome');
+  const two = await TestClient.connect(server.url, acc.body.token);
+  await two.waitFor('welcome');
+  // The newest connection is the live one; the old socket is closed by the
+  // server rather than left racing it.
+  two.send({ t: 'ping', at: 1 });
+  const pong = await two.waitFor('pong');
+  assert.equal(pong.at, 1);
+  one.close();
+  two.close();
+});
+
+test('oversized and malformed payloads are rejected, not crashed on', async () => {
+  const res = await fetch(server.url + '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{ not json',
+  });
+  assert.equal(res.status, 400);
+
+  const big = await fetch(server.url + '/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'x'.repeat(100_000), password: 'y'.repeat(100_000) }),
+  });
+  assert.ok(big.status === 400 || big.status === 413, `got ${big.status}`);
+
+  // And the server is still healthy afterwards.
+  const health = await getJson<{ ok: boolean }>(server.url, '/api/health');
+  assert.equal(health.body.ok, true);
+});
+
+test('static file serving refuses to escape its root', async () => {
+  for (const path of ['/../package.json', '/%2e%2e/package.json', '/../../etc/passwd']) {
+    const res = await fetch(server.url + path);
+    const body = await res.text();
+    assert.ok(
+      !body.includes('"name": "wallrush"') && !body.includes('root:x:'),
+      `${path} leaked something it should not have`,
+    );
+  }
+});
+
 test('a malformed message does not take the connection down', async () => {
   const client = await TestClient.connect(server.url);
   await client.waitFor('welcome');

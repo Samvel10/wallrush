@@ -85,19 +85,33 @@ function sendJson(
 }
 
 async function readBody(req: IncomingMessage): Promise<unknown> {
+  // Reject early when the sender announces an oversized body, so we never even
+  // start buffering it.
+  const declared = Number(req.headers['content-length']);
+  if (Number.isFinite(declared) && declared > MAX_BODY) {
+    req.resume();
+    throw new Error('payload-too-large');
+  }
   return new Promise((resolvePromise, reject) => {
     let size = 0;
+    let overflowed = false;
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => {
+      if (overflowed) return;
       size += chunk.length;
       if (size > MAX_BODY) {
+        // Drain the rest instead of destroying the socket: the client deserves
+        // a real 413 rather than a connection reset it cannot interpret.
+        overflowed = true;
+        chunks.length = 0;
+        req.resume();
         reject(new Error('payload-too-large'));
-        req.destroy();
         return;
       }
       chunks.push(chunk);
     });
     req.on('end', () => {
+      if (overflowed) return;
       if (chunks.length === 0) return resolvePromise({});
       try {
         resolvePromise(JSON.parse(Buffer.concat(chunks).toString('utf8')));
