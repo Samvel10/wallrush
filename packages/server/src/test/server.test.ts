@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import test, { after, before } from 'node:test';
 
-import { Game, MoveKind, type GameState, type Move } from '@wallrush/shared';
+import { Game, MoveKind, transcript, type GameState, type Move } from '@wallrush/shared';
 
 import { TestClient, getJson, postJson, startServer, type TestServer } from './harness.js';
 
@@ -668,6 +668,89 @@ test('static file serving refuses to escape its root', async () => {
       `${path} leaked something it should not have`,
     );
   }
+});
+
+test('an offline bot game is accepted only if the moves really happened', async () => {
+  const acc = await postJson<{ token: string }>(server.url, '/api/auth/register', {
+    username: 'offline_player',
+    password: 'password123',
+  });
+
+  // Build a real, finished game so we have an honest transcript to send.
+  const game = new Game({ size: 5, wallsPerPlayer: 0, clockMs: 0, moveTimeoutMs: 0 });
+  while (!game.isOver) {
+    assert.ok(game.apply(bestStep(game, game.turn)).ok);
+  }
+  const winner = game.winner!;
+  const text = transcript(
+    game.history.map((h) => h.move),
+    5,
+  );
+
+  const good = await postJson<{ id: string; result: string }>(
+    server.url,
+    '/api/matches/local',
+    {
+      transcript: text,
+      size: 5,
+      players: 2,
+      wallsPerPlayer: 0,
+      seat: winner,
+      botLevel: 'medium',
+      startedAt: Date.now() - 60_000,
+    },
+    acc.body.token,
+  );
+  assert.equal(good.status, 200);
+  assert.equal(good.body.result, 'win');
+
+  // The stored match is replayable and shows up in history.
+  const replay = await getJson<{ match: { transcript: string; winnerSeat: number } }>(
+    server.url,
+    `/api/match/${good.body.id}`,
+  );
+  assert.equal(replay.status, 200);
+  assert.equal(replay.body.match.transcript, text);
+  assert.equal(replay.body.match.winnerSeat, winner);
+
+  const history = await getJson<{ matches: { id: string; result: string }[] }>(
+    server.url,
+    '/api/me/history',
+    acc.body.token,
+  );
+  assert.ok(history.body.matches.some((m) => m.id === good.body.id));
+
+  // A transcript that does not finish the game is refused …
+  const short = await postJson<{ error: string }>(
+    server.url,
+    '/api/matches/local',
+    // Legal opening moves on a 5x5 board, but nobody has reached the far side.
+    { transcript: 'c2 c4', size: 5, players: 2, wallsPerPlayer: 0, seat: 0, botLevel: 'medium' },
+    acc.body.token,
+  );
+  assert.equal(short.status, 400);
+  assert.equal(short.body.error, 'unfinished');
+
+  // … and so is one with an illegal move in it.
+  const bogus = await postJson<{ error: string }>(
+    server.url,
+    '/api/matches/local',
+    { transcript: 'a1 a1 a1', size: 5, players: 2, wallsPerPlayer: 0, seat: 0, botLevel: 'medium' },
+    acc.body.token,
+  );
+  assert.equal(bogus.status, 400);
+  assert.equal(bogus.body.error, 'illegal-transcript');
+
+  // And an anonymous caller cannot store anything at all.
+  const anon = await postJson<{ error: string }>(server.url, '/api/matches/local', {
+    transcript: text,
+    size: 5,
+    players: 2,
+    wallsPerPlayer: 0,
+    seat: winner,
+    botLevel: 'medium',
+  });
+  assert.equal(anon.status, 401);
 });
 
 test('a malformed message does not take the connection down', async () => {

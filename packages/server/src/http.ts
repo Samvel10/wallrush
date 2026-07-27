@@ -6,11 +6,20 @@
  * No framework, because there is nothing here a framework would do better.
  */
 
+import { randomUUID } from 'node:crypto';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 
-import { BOT_RATING, tierOf } from '@wallrush/shared';
+import {
+  BOT_LEVELS,
+  BOT_RATING,
+  Game,
+  cloneConfig,
+  parseTranscript,
+  tierOf,
+  type BotLevel,
+} from '@wallrush/shared';
 
 import {
   AVATAR_CHOICES,
@@ -25,11 +34,13 @@ import {
 } from './auth.js';
 import { config } from './config.js';
 import {
+  applyMatchResult,
   counts,
   getUserById,
   leaderboard,
   matchById,
   matchHistory,
+  recordMatch,
   touchUser,
   updateProfile,
   type UserRow,
@@ -323,6 +334,112 @@ async function handleApi(
       players: safeJson(row.players_json, []),
     }));
     sendJson(res, 200, { matches: rows }, origin);
+    return;
+  }
+
+  // ---------------------------------------------------- offline bot games
+  if (path === '/api/matches/local' && method === 'POST') {
+    const user = userFromToken(bearer(req));
+    if (!user) {
+      sendJson(res, 401, { error: 'unauthorized' }, origin);
+      return;
+    }
+    const body = (await readBody(req)) as {
+      transcript?: string;
+      size?: number;
+      players?: number;
+      wallsPerPlayer?: number;
+      seat?: number;
+      botLevel?: string;
+      startedAt?: number;
+    };
+
+    // The client reports the moves, not the result. Replaying the transcript
+    // through the same engine the server uses is what makes this trustworthy:
+    // a forged win would have to be an actual legal winning game.
+    const config = cloneConfig({
+      size: (body.size === 5 || body.size === 7 || body.size === 11 ? body.size : 9),
+      players: body.players === 4 ? 4 : 2,
+      wallsPerPlayer: body.wallsPerPlayer,
+      clockMs: 0,
+      incrementMs: 0,
+      moveTimeoutMs: 0,
+    });
+    const seat = Number(body.seat) === 0 ? 0 : Number(body.seat);
+    const level = BOT_LEVELS.includes(body.botLevel as BotLevel)
+      ? (body.botLevel as BotLevel)
+      : null;
+    if (!body.transcript || !level || !Number.isInteger(seat) || seat < 0 || seat >= config.players) {
+      sendJson(res, 400, { error: 'bad-request' }, origin);
+      return;
+    }
+
+    const moves = parseTranscript(body.transcript, config.size);
+    if (moves.length === 0 || moves.length > 400) {
+      sendJson(res, 400, { error: 'bad-transcript' }, origin);
+      return;
+    }
+    const game = new Game(config);
+    for (const move of moves) {
+      if (!game.apply(move).ok) {
+        sendJson(res, 400, { error: 'illegal-transcript' }, origin);
+        return;
+      }
+    }
+    if (game.winner === null) {
+      sendJson(res, 400, { error: 'unfinished' }, origin);
+      return;
+    }
+
+    const result = game.winner === seat ? 'win' : 'loss';
+    const id = randomUUID();
+    const finishedAt = Date.now();
+    const startedAt =
+      Number.isFinite(body.startedAt) && Number(body.startedAt) < finishedAt
+        ? Number(body.startedAt)
+        : finishedAt;
+    try {
+      recordMatch(
+        {
+          id,
+          mode: 'bot-local',
+          size: config.size,
+          seats: config.players,
+          rated: 0,
+          winner_seat: game.winner,
+          ending: game.ending ?? 'goal',
+          transcript: body.transcript,
+          config_json: JSON.stringify(config),
+          players_json: JSON.stringify(
+            Array.from({ length: config.players }, (_, i) => ({
+              seat: i,
+              bot: i === seat ? null : level,
+              userId: i === seat ? user.id : null,
+              name: i === seat ? user.display_name : level,
+            })),
+          ),
+          started_at: startedAt,
+          finished_at: finishedAt,
+          plies: game.ply,
+        },
+        [
+          {
+            userId: user.id,
+            seat,
+            result,
+            ratingBefore: null,
+            ratingAfter: null,
+            botLevel: level,
+          },
+        ],
+      );
+      // Counts toward the personal record, never toward the rating.
+      applyMatchResult(user.id, result, user.rating);
+    } catch {
+      sendJson(res, 500, { error: 'store-failed' }, origin);
+      return;
+    }
+    sendJson(res, 200, { id, result }, origin);
     return;
   }
 

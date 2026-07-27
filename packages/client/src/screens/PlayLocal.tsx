@@ -1,11 +1,12 @@
 /** Offline play: against a bot, or two people on one device. */
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import {
   BOT_LEVELS,
   DEFAULT_CONFIG,
   cloneConfig,
+  transcript,
   type BotLevel,
   type GameConfig,
   type Move,
@@ -17,6 +18,7 @@ import type { SeatView } from '../components/GameHud.js';
 import { BackButton, Modal, useToast } from '../components/ui.js';
 import { useLocalGame } from '../hooks/useLocalGame.js';
 import { useI18n } from '../i18n/index.js';
+import { api } from '../net/api.js';
 import { useRouter } from '../state/router.js';
 import { useSession } from '../state/session.js';
 import { useSettings } from '../state/settings.js';
@@ -74,10 +76,16 @@ export function PlayLocal({
   const [hint, setHint] = useState<Move | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [confirmResign, setConfirmResign] = useState(false);
+  const [savedMatchId, setSavedMatchId] = useState<string | null>(null);
+  const startedAt = useRef(Date.now());
+  const reported = useRef<string | null>(null);
 
   useEffect(() => {
     if (!local.game.isOver) {
       setShowResult(false);
+      setSavedMatchId(null);
+      reported.current = null;
+      startedAt.current = Date.now();
       return;
     }
     setShowResult(true);
@@ -85,7 +93,28 @@ export function PlayLocal({
       const won = local.winner === 0;
       (won ? sounds.win : sounds.lose)();
     }
-  }, [local.game.isOver, local.winner, settings.sound]);
+
+    // Offline games are played entirely in the browser, so the server only
+    // learns about them if we tell it — and it verifies by replaying the moves.
+    if (!botLevel || !profile || profile.guest) return;
+    const moves = local.game.history.map((h) => h.move);
+    if (local.game.ending !== 'goal' || moves.length === 0) return;
+    const text = transcript(moves, local.game.size);
+    if (reported.current === text) return;
+    reported.current = text;
+    void api
+      .reportLocalMatch({
+        transcript: text,
+        size: local.game.size,
+        players: local.game.config.players,
+        wallsPerPlayer: local.game.config.wallsPerPlayer,
+        seat: 0,
+        botLevel,
+        startedAt: startedAt.current,
+      })
+      .then((r) => setSavedMatchId(r.id))
+      .catch(() => undefined);
+  }, [local.game, local.winner, settings.sound, botLevel, profile]);
 
   const seats: SeatView[] = local.seats.map((s) => ({
     index: s.index,
@@ -258,6 +287,7 @@ export function PlayLocal({
           setShowResult(false);
         }}
         onHome={() => go({ name: 'home' })}
+        onReview={savedMatchId ? () => go({ name: 'replay', id: savedMatchId }) : undefined}
       />
     </div>
   );

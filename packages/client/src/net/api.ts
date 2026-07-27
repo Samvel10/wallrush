@@ -147,6 +147,25 @@ export const api = {
       auth: false,
     }),
 
+  /**
+   * Reports a finished offline bot game. Only the moves are sent — the server
+   * replays them through the engine and derives the result itself, so there is
+   * nothing useful to lie about.
+   */
+  reportLocalMatch: (input: {
+    transcript: string;
+    size: number;
+    players: number;
+    wallsPerPlayer: number;
+    seat: number;
+    botLevel: string;
+    startedAt: number;
+  }) =>
+    request<{ id: string; result: string }>('/api/matches/local', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
   match: (id: string) =>
     request<{
       match: {
