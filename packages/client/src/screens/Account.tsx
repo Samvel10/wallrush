@@ -136,18 +136,21 @@ export function Auth({ mode }: { mode: 'in' | 'up' }): ReactNode {
 export function ProfileScreen(): ReactNode {
   const { t, lang, setLang } = useI18n();
   const { go } = useRouter();
-  const { profile, signedIn, signOut, update } = useSession();
+  const { profile, signedIn, signOut, update, refresh } = useSession();
   const { settings, set, reset } = useSettings();
   const toast = useToast();
   const [history, setHistory] = useState<HistoryItem[] | null>(null);
 
   useEffect(() => {
     if (!signedIn) return;
+    // Games finish elsewhere — online rooms, offline bot games — so the cached
+    // profile is stale by the time anyone opens this screen. Re-read it.
+    void refresh();
     void api
       .history(30)
       .then((r) => setHistory(r.matches))
       .catch(() => setHistory([]));
-  }, [signedIn]);
+  }, [signedIn, refresh]);
 
   const changeAvatar = useCallback(
     async (avatar: string) => {
