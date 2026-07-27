@@ -1,0 +1,26 @@
+{
+  "name": "wallrush",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WallRush — a fast, beautiful, free multiplayer Quoridor game for the web",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "build": "npm run build -w @wallrush/shared && npm run build -w @wallrush/client && npm run build -w @wallrush/server",
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "npm run dev -w @wallrush/server",
+    "dev:client": "npm run dev -w @wallrush/client",
+    "start": "node packages/server/dist/index.js",
+    "test": "npm run test -w @wallrush/shared && npm run test -w @wallrush/server",
+    "typecheck": "npm run typecheck -w @wallrush/shared && npm run typecheck -w @wallrush/server && npm run typecheck -w @wallrush/client",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules"
+  }
+}
