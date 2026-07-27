@@ -75,7 +75,8 @@ function Screen({ route }: { route: Route }): ReactNode {
       const level = (BOT_LEVELS as string[]).includes(route.level)
         ? (route.level as BotLevel)
         : 'medium';
-      return <PlayLocal key={level} botLevel={level} />;
+      const seats = route.seats === 4 ? 4 : 2;
+      return <PlayLocal key={`${level}-${seats}`} botLevel={level} seats={seats} />;
     }
     case 'play-local':
     case 'local':

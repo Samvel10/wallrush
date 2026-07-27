@@ -20,7 +20,7 @@ export type Route =
   | { name: 'home' }
   | { name: 'bots' }
   | { name: 'local' }
-  | { name: 'play-bot'; level: string }
+  | { name: 'play-bot'; level: string; seats?: 2 | 4 }
   | { name: 'play-local' }
   | { name: 'lobby' }
   | { name: 'create' }
@@ -38,7 +38,7 @@ export function routeToHash(route: Route): string {
     case 'home':
       return '#/';
     case 'play-bot':
-      return `#/bot/${route.level}`;
+      return route.seats === 4 ? `#/bot/${route.level}/4` : `#/bot/${route.level}`;
     case 'room':
       return `#/room/${route.code}`;
     case 'auth':
@@ -58,7 +58,11 @@ export function parseHash(hash: string): Route {
     case 'bots':
       return { name: 'bots' };
     case 'bot':
-      return { name: 'play-bot', level: parts[1] ?? 'medium' };
+      return {
+        name: 'play-bot',
+        level: parts[1] ?? 'medium',
+        seats: parts[2] === '4' ? 4 : 2,
+      };
     case 'local':
       return { name: 'local' };
     case 'play-local':

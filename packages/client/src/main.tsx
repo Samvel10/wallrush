@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 
 import { App } from './App.js';
 import { connection } from './net/socket.js';
+import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { ToastProvider } from './components/ui.js';
 import { I18nProvider } from './i18n/index.js';
 import { RouterProvider } from './state/router.js';
@@ -19,17 +20,19 @@ if (!container) throw new Error('missing #root');
 
 createRoot(container).render(
   <StrictMode>
-    <SettingsProvider>
-      <I18nProvider>
-        <SessionProvider>
-          <RouterProvider>
-            <ToastProvider>
-              <App />
-            </ToastProvider>
-          </RouterProvider>
-        </SessionProvider>
-      </I18nProvider>
-    </SettingsProvider>
+    <ErrorBoundary>
+      <SettingsProvider>
+        <I18nProvider>
+          <SessionProvider>
+            <RouterProvider>
+              <ToastProvider>
+                <App />
+              </ToastProvider>
+            </RouterProvider>
+          </SessionProvider>
+        </I18nProvider>
+      </SettingsProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );
 

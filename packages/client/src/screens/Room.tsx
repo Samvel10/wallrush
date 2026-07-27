@@ -258,6 +258,13 @@ export function Room({ code }: { code: string }): ReactNode {
           lastMove={online.lastMove}
           floatingEmote={floatingEmote}
           onMove={onMove}
+          banner={
+            online.mySeat === null ? (
+              <span className="chip" style={{ alignSelf: 'center' }}>
+                👁 {t.game.spectating}
+              </span>
+            ) : undefined
+          }
           actions={
             <>
               <button

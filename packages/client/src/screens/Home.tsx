@@ -13,6 +13,7 @@ export function Home(): ReactNode {
   const { profile } = useSession();
   const [online, setOnline] = useState<number | null>(null);
   const [inGame, setInGame] = useState<number>(0);
+  const [resumeCode, setResumeCode] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -30,6 +31,12 @@ export function Home(): ReactNode {
         setInGame(msg.inGame);
       } else if (msg.t === 'welcome') {
         setOnline(msg.online);
+      } else if (msg.t === 'room' || msg.t === 'game.start') {
+        // The server re-attaches us to a table we are still seated at, so this
+        // arrives unprompted after a refresh or a dropped connection.
+        setResumeCode(msg.room.code);
+      } else if (msg.t === 'room.closed') {
+        setResumeCode(null);
       }
     });
     return () => {
@@ -60,6 +67,15 @@ export function Home(): ReactNode {
       </header>
 
       <div className="stack-sm">
+        {resumeCode ? (
+          <Tile
+            icon="↩"
+            title={t.home.continue}
+            sub={resumeCode}
+            tint="var(--success)"
+            onClick={() => go({ name: 'room', code: resumeCode })}
+          />
+        ) : null}
         <Tile
           hero
           icon="⚡"

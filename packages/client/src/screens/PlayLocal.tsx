@@ -24,9 +24,12 @@ import { sounds } from '../state/sound.js';
 
 export function PlayLocal({
   botLevel,
+  seats: seatCount = 2,
 }: {
-  /** null means hot-seat: two humans sharing the device. */
+  /** null means hot-seat: humans sharing the device. */
   botLevel: BotLevel | null;
+  /** 2 or 4 seats. With a bot level, every other seat is filled by a bot. */
+  seats?: 2 | 4;
 }): ReactNode {
   const { t } = useI18n();
   const { go, back } = useRouter();
@@ -34,24 +37,39 @@ export function PlayLocal({
   const { settings } = useSettings();
   const toast = useToast();
 
+  // Only the fields we actually want to pin are passed: `cloneConfig` derives
+  // the wall count from the seat count and board size, and spreading the whole
+  // default would pin it to the two-player value.
   const config: GameConfig = useMemo(
-    () => cloneConfig({ ...DEFAULT_CONFIG, clockMs: 0, moveTimeoutMs: 0 }),
-    [],
+    () =>
+      cloneConfig({
+        size: DEFAULT_CONFIG.size,
+        players: seatCount,
+        clockMs: 0,
+        incrementMs: 0,
+        moveTimeoutMs: 0,
+      }),
+    [seatCount],
+  );
+
+  // Seat 0 is always the person holding the device. In a bot game every other
+  // seat is a bot; in hot-seat every seat is a human taking turns.
+  const bots = useMemo<(BotLevel | null)[]>(
+    () =>
+      Array.from({ length: seatCount }, (_, i) => (i === 0 ? null : botLevel)),
+    [seatCount, botLevel],
   );
 
   const names = useMemo(
     () =>
-      botLevel
-        ? [profile?.name ?? t.common.you, t.bot[botLevel]]
-        : [`${t.room.seat} 1`, `${t.room.seat} 2`],
-    [botLevel, profile, t],
+      Array.from({ length: seatCount }, (_, i) => {
+        if (i === 0) return botLevel ? (profile?.name ?? t.common.you) : `${t.room.seat} 1`;
+        return botLevel ? t.bot[botLevel] : `${t.room.seat} ${i + 1}`;
+      }),
+    [seatCount, botLevel, profile, t],
   );
 
-  const local = useLocalGame({
-    config,
-    bots: botLevel ? [null, botLevel] : [null, null],
-    names,
-  });
+  const local = useLocalGame({ config, bots, names });
 
   const [hint, setHint] = useState<Move | null>(null);
   const [showResult, setShowResult] = useState(false);
@@ -105,6 +123,7 @@ export function PlayLocal({
         <BackButton onClick={back} />
         <h1 className="grow truncate" style={{ fontSize: 'var(--text-lg)' }}>
           {botLevel ? `${t.modes.vsBot} · ${t.bot[botLevel]}` : t.home.local}
+          {seatCount === 4 ? ` · ${t.setup.fourPlayers}` : ''}
         </h1>
       </div>
 
@@ -188,7 +207,7 @@ export function PlayLocal({
                             }
                           : undefined
                       }
-                      onClick={() => go({ name: 'play-bot', level })}
+                      onClick={() => go({ name: 'play-bot', level, seats: seatCount })}
                     >
                       {t.bot[level]}
                     </button>
