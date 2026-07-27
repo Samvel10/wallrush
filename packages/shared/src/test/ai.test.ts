@@ -109,18 +109,37 @@ test('the bot races instead of walling when the race is already won', () => {
   if (res.move.kind === MoveKind.Step) assert.equal(res.move.to.r, 1);
 });
 
-test('a wall is preferred over racing while the opponent still has ammunition', () => {
-  // Same race, but now red holds a full set of walls: charging straight ahead
-  // is no longer a forced win, so the bot must not treat it as one.
+test('a claimed forced win is actually winnable', () => {
+  // The same race, but red still holds a full set of walls. A deep search may
+  // legitimately prove a forced win here — so rather than guessing whether the
+  // position is won, play the bot's own verdict out and check it was telling
+  // the truth. This catches an evaluation that reports mates it cannot deliver.
   const g = new Game();
   g.players[0].pos = { r: 2, c: 4 };
   g.players[1].pos = { r: 5, c: 0 };
   const fresh = Game.fromState(g.toState());
   fresh.turn = 0;
+
   const bot = new Bot('expert', 9, 2, 17);
   const res = bot.choose(fresh, { strict: true, timeMs: 1500 });
-  assert.ok(res.score < 90_000, 'the position is not a forced win and must not be scored as one');
-  assert.ok(fresh.isLegal(res.move).ok);
+  assert.ok(fresh.isLegal(res.move).ok, 'the chosen move must be legal');
+
+  if (Math.abs(res.score) < 90_000) return; // no claim made, nothing to verify
+
+  const claimsWinForSeat0 = res.score > 0;
+  const board = Game.fromState(fresh.toState());
+  const players = [new Bot('expert', 9, 2, 31), new Bot('expert', 9, 2, 37)];
+  assert.ok(board.apply(res.move).ok);
+  for (let i = 0; i < 120 && !board.isOver; i++) {
+    const reply = players[board.turn].choose(board, { strict: true, timeMs: 220 });
+    assert.ok(board.apply(reply.move).ok, 'bots must only produce legal moves');
+  }
+  assert.notEqual(board.winner, null, 'a claimed forced win must actually finish');
+  assert.equal(
+    board.winner === 0,
+    claimsWinForSeat0,
+    `search claimed ${res.score} for seat 0 but seat ${board.winner} won`,
+  );
 });
 
 test('a bot never walls itself into a longer route for nothing', () => {

@@ -42,6 +42,7 @@ export function SeatBar({
       className={[
         'seat-bar',
         isTurn ? 'is-turn' : '',
+        compact ? 'is-compact' : '',
         seat.connected === false ? 'is-offline' : '',
       ]
         .filter(Boolean)
@@ -57,7 +58,7 @@ export function SeatBar({
             <span className="faint tiny"> · {t.common.you}</span>
           ) : null}
         </div>
-        {!compact ? (
+        {compact ? null : (
           <div className="seat-meta">
             <span className="wall-pips" aria-label={`${walls} ${t.game.walls}`}>
               {Array.from({ length: total }, (_, i) => (
@@ -71,8 +72,19 @@ export function SeatBar({
               </span>
             ) : null}
           </div>
-        ) : null}
+        )}
       </div>
+      {compact ? (
+        <span className="seat-meta">
+          <span aria-label={t.game.walls}>🧱</span>
+          <span className="nums">{walls}</span>
+          {distance >= 0 ? (
+            <span className="faint">
+              · <span className="nums">{distance}</span>
+            </span>
+          ) : null}
+        </span>
+      ) : null}
       {game.config.clockMs > 0 ? (
         <span
           className={`clock${isTurn && running ? ' is-running' : ''}${

@@ -129,7 +129,13 @@ export function GameView({
       <div className="game-stage">
         <div className="stack-sm" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {opponents.map((s) => (
-            <SeatBar key={s.index} seat={s} game={game} running={clockRunning} />
+            <SeatBar
+              key={s.index}
+              seat={s}
+              game={game}
+              running={clockRunning}
+              compact={seats.length > 2}
+            />
           ))}
         </div>
 

@@ -10,7 +10,9 @@
 .board-frame {
   position: relative;
   width: 100%;
-  max-width: min(72vh, 680px);
+  /* Leave room for the seat strips, turn banner and toolbar so the whole
+     game fits a short laptop screen without scrolling. */
+  max-width: min(66vh, 680px);
   margin-inline: auto;
   aspect-ratio: 1;
   border-radius: var(--radius-xl);
@@ -417,6 +419,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
+  min-height: 44px;
   border-radius: var(--radius-lg);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -433,6 +436,17 @@
 }
 .seat-bar.is-offline {
   opacity: 0.6;
+}
+
+/* Four seats plus a board is a lot of vertical space, so the opponent strip
+   collapses to a single compact row per player. */
+.seat-bar.is-compact {
+  padding: 4px var(--space-3);
+  min-height: 34px;
+  gap: var(--space-2);
+}
+.seat-bar.is-compact .seat-name {
+  font-size: var(--text-xs);
 }
 
 .seat-dot {
@@ -505,15 +519,18 @@
 
 /* ---------------------------------------------------------------- toolbar */
 
+/*
+ * Deliberately *not* sticky. A pinned toolbar floats over the last row of the
+ * board whenever the page scrolls — and the bottom row is exactly where a
+ * player is trying to move. The board is square, so on every phone size the
+ * toolbar already lands within thumb reach directly under it.
+ */
 .game-toolbar {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   flex-wrap: wrap;
-  position: sticky;
-  bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
-  z-index: 20;
 }
 
 .wall-tray {

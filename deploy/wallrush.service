@@ -1,0 +1,34 @@
+[Unit]
+Description=WallRush
+Documentation=https://github.com/Samvel10/wallrush
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wallrush
+Group=wallrush
+WorkingDirectory=/opt/wallrush
+ExecStart=/usr/bin/node packages/server/dist/index.js
+Restart=always
+RestartSec=2
+
+Environment=NODE_ENV=production
+Environment=PORT=8787
+Environment=HOST=127.0.0.1
+Environment=WALLRUSH_DATA=/var/lib/wallrush
+Environment=WALLRUSH_STATIC=/opt/wallrush/packages/client/dist
+
+# The process needs nothing beyond its own data directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/wallrush
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

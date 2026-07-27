@@ -12,6 +12,7 @@ import { Home } from './screens/Home.js';
 import { Lobby, QuickMatch } from './screens/Lobby.js';
 import { PlayLocal } from './screens/PlayLocal.js';
 import { Room } from './screens/Room.js';
+import { Replay } from './screens/Replay.js';
 import { Rules } from './screens/Rules.js';
 import { useRouter, type Route } from './state/router.js';
 import { useSession } from './state/session.js';
@@ -37,7 +38,10 @@ export function App(): ReactNode {
   }, [refresh]);
 
   const inGame =
-    route.name === 'play-bot' || route.name === 'play-local' || route.name === 'room';
+    route.name === 'play-bot' ||
+    route.name === 'play-local' ||
+    route.name === 'room' ||
+    route.name === 'replay';
 
   return (
     <div className="app">
@@ -98,6 +102,8 @@ function Screen({ route }: { route: Route }): ReactNode {
       return <Auth mode={route.mode} />;
     case 'rules':
       return <Rules />;
+    case 'replay':
+      return <Replay key={route.id} id={route.id} />;
     default:
       return <Home />;
   }

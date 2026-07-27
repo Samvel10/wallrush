@@ -365,7 +365,19 @@ export function ProfileScreen(): ReactNode {
                     ? h.ratingAfter - h.ratingBefore
                     : 0;
                 return (
-                  <div key={h.id} className="row card-tight" style={{ gap: 10 }}>
+                  <button
+                    key={h.id}
+                    type="button"
+                    className="row card-tight"
+                    style={{
+                      gap: 10,
+                      width: '100%',
+                      textAlign: 'start',
+                      borderRadius: 'var(--radius-md)',
+                    }}
+                    onClick={() => go({ name: 'replay', id: h.id })}
+                    title={t.profile.replay}
+                  >
                     <span
                       className="chip"
                       style={{
@@ -397,7 +409,10 @@ export function ProfileScreen(): ReactNode {
                       </span>
                     ) : null}
                     <span className="tiny faint">{formatRelative(h.finishedAt, lang)}</span>
-                  </div>
+                    <span className="tile-chevron" aria-hidden="true">
+                      ›
+                    </span>
+                  </button>
                 );
               })}
             </div>

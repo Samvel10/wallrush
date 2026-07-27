@@ -250,18 +250,46 @@ export function formatClock(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+/**
+ * Relative time.
+ *
+ * `Intl.RelativeTimeFormat` has no Armenian data in most browsers and silently
+ * falls back to English, which would leave "12 minutes ago" sitting in the
+ * middle of an Armenian page. Armenian is therefore formatted by hand; Russian
+ * and English go through Intl as usual.
+ */
 export function formatRelative(ts: number, lang: Lang): string {
-  const diff = Date.now() - ts;
-  const rtf = new Intl.RelativeTimeFormat(lang === 'hy' ? 'hy-AM' : lang, {
-    numeric: 'auto',
-  });
+  const diff = Math.max(0, Date.now() - ts);
   const minute = 60_000;
   const hour = 60 * minute;
   const day = 24 * hour;
+
+  if (lang === 'hy') {
+    if (diff < minute) return 'հենց նոր';
+    if (diff < hour) {
+      const n = Math.max(1, Math.round(diff / minute));
+      return `${n} րոպե առաջ`;
+    }
+    if (diff < day) {
+      const n = Math.round(diff / hour);
+      return `${n} ժամ առաջ`;
+    }
+    if (diff < 30 * day) {
+      const n = Math.round(diff / day);
+      return n === 1 ? 'երեկ' : `${n} օր առաջ`;
+    }
+    return new Intl.DateTimeFormat('hy-AM', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(ts);
+  }
+
+  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
   if (diff < hour) return rtf.format(-Math.max(1, Math.round(diff / minute)), 'minute');
   if (diff < day) return rtf.format(-Math.round(diff / hour), 'hour');
   if (diff < 30 * day) return rtf.format(-Math.round(diff / day), 'day');
-  return new Intl.DateTimeFormat(lang === 'hy' ? 'hy-AM' : lang, {
+  return new Intl.DateTimeFormat(lang, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

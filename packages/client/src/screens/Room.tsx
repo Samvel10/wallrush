@@ -84,6 +84,16 @@ export function Room({ code }: { code: string }): ReactNode {
   const room = online.room;
   const game = online.game;
 
+  // The server can move us to a different table — matchmaking pairs us into a
+  // fresh room, and a rematch reseats everyone. Keep the URL honest so the
+  // page can be reloaded or shared at any moment.
+  useEffect(() => {
+    if (room && room.code !== code) {
+      joinedRef.current = room.code;
+      go({ name: 'room', code: room.code }, true);
+    }
+  }, [room, code, go]);
+
   const seats: SeatView[] = useMemo(() => {
     if (!room) return [];
     return room.seats.map((s: SeatInfo, i) => ({
