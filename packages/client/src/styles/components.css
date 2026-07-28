@@ -322,7 +322,27 @@
   width: 100%;
 }
 .segmented-block .segmented-item {
-  flex: 1;
+  /* `flex: 1` alone leaves min-width at `auto`, so a long label — Русский,
+     Լուսավոր — refuses to shrink and pushes the whole control out of its
+     card. The two steps below mean it never has to come to that. */
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+@media (max-width: 400px) {
+  /* Common Android widths: buy the room back from padding and type size. */
+  .segmented-block .segmented-item {
+    gap: 4px;
+    padding: 0 var(--space-2);
+    font-size: var(--text-xs);
+  }
+}
+@media (max-width: 340px) {
+  /* The narrowest phones still in use. Past here the emoji and the word
+     cannot both fit, and the word is the one carrying the meaning. */
+  .segmented-block .seg-emoji {
+    display: none;
+  }
 }
 
 .switch {
@@ -740,6 +760,22 @@
 }
 .table tbody tr.is-me {
   background: var(--accent-soft);
+}
+@media (max-width: 480px) {
+  /* A leaderboard that scrolls sideways is a leaderboard nobody reads. Rank,
+     player and rating are the row; the games column can wait for a wider
+     screen, and the tier badge is already implied by the rating. */
+  .table-compact th:nth-child(4),
+  .table-compact td:nth-child(4) {
+    display: none;
+  }
+  .table-compact td,
+  .table-compact th {
+    padding-inline: var(--space-2);
+  }
+  .table-compact .badge-tier {
+    display: none;
+  }
 }
 
 /* ------------------------------------------------------------------- misc */

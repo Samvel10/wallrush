@@ -278,7 +278,8 @@ export function ProfileScreen(): ReactNode {
                   if (signedIn) void update({ lang: code }).catch(() => undefined);
                 }}
               >
-                {dictionaryFor(code).meta.flag} {dictionaryFor(code).meta.name}
+                <span className="seg-emoji">{dictionaryFor(code).meta.flag}</span>{' '}
+                {dictionaryFor(code).meta.name}
               </button>
             ))}
           </div>
@@ -295,7 +296,9 @@ export function ProfileScreen(): ReactNode {
                 aria-pressed={settings.theme === th}
                 onClick={() => set('theme', th)}
               >
-                {th === 'auto' ? '🌗' : th === 'light' ? '☀️' : '🌙'}{' '}
+                <span className="seg-emoji">
+                  {th === 'auto' ? '🌗' : th === 'light' ? '☀️' : '🌙'}
+                </span>{' '}
                 {th === 'auto'
                   ? t.profile.themeAuto
                   : th === 'light'
@@ -487,7 +490,7 @@ export function Leaderboard(): ReactNode {
         </div>
       ) : (
         <div className="card card-flush" style={{ overflowX: 'auto' }}>
-          <table className="table">
+          <table className="table table-compact">
             <thead>
               <tr>
                 <th style={{ width: 48 }}>#</th>
@@ -503,7 +506,7 @@ export function Leaderboard(): ReactNode {
                   <td>
                     <div className="row" style={{ gap: 8 }}>
                       <span className="avatar avatar-sm">{row.avatar}</span>
-                      <span className="truncate" style={{ fontWeight: 600 }}>
+                      <span className="grow truncate" style={{ fontWeight: 600 }}>
                         {row.name}
                       </span>
                       <span className={`badge-tier tier-${row.tier}`}>
