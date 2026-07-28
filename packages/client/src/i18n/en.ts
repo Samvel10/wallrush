@@ -286,9 +286,14 @@ export const en: Dictionary = {
 
   rules: {
     title: 'How to play',
+    modesTitle: 'Two modes',
+    modeDuel:
+      '⚔️ Duel — you start on opposite sides and each of you runs for the other one\'s edge. The classic game.',
+    modeRace:
+      '🏁 Race — you both start at the bottom, side by side, and run for one shared finish at the top. Longer board (9×13), more walls (15). First one there wins.',
     goalTitle: 'The goal',
     goal:
-      'Get your pawn to the opposite edge of the board before your opponent does. First one there wins.',
+      'Get your pawn to the finish before your opponent does. First one there wins. Where the finish is depends on the mode.',
     turnTitle: 'On your turn',
     turn:
       'Each turn you do exactly one of two things: move your pawn one square, or place one wall.',

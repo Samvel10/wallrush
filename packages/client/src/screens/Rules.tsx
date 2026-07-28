@@ -78,6 +78,14 @@ export function Rules(): ReactNode {
         </h1>
       </div>
 
+      {/* Two modes exist, and a player who picks the race has no way to guess
+          that both pawns start on the same edge unless we say so. */}
+      <div className="card stack-sm">
+        <h2 style={{ fontSize: 'var(--text-lg)' }}>{t.rules.modesTitle}</h2>
+        <p className="muted">{t.rules.modeDuel}</p>
+        <p className="muted">{t.rules.modeRace}</p>
+      </div>
+
       <div className="card stack-sm">
         <h2 style={{ fontSize: 'var(--text-lg)' }}>{t.rules.goalTitle}</h2>
         <p className="muted">{t.rules.goal}</p>
