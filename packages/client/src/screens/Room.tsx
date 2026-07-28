@@ -45,7 +45,6 @@ export function Room({ code }: { code: string }): ReactNode {
   const joinedRef = useRef<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Join once per room code; reconnects re-attach automatically server-side.
   useEffect(() => {
     connection.connect();
     if (joinedRef.current !== code) {
@@ -53,6 +52,25 @@ export function Room({ code }: { code: string }): ReactNode {
       connection.send({ t: 'room.join', code });
     }
   }, [code]);
+
+  /**
+   * Ask again after every reconnect.
+   *
+   * A dropped socket re-attaches server-side, so joining once was enough —
+   * until the server itself restarts. Then its memory is empty, there is
+   * nothing to re-attach to, and a client that never asks again sits looking
+   * at a table that no longer exists: both seats filled, nothing responding,
+   * no hint that anything happened. Asking costs one message and answers the
+   * question either way — the server re-attaches us, or says room-not-found
+   * and the handler below takes us to the lobby.
+   */
+  useEffect(
+    () =>
+      connection.onMessage((msg) => {
+        if (msg.t === 'welcome') connection.send({ t: 'room.join', code });
+      }),
+    [code],
+  );
 
   useEffect(() => {
     if (!online.error) return;
