@@ -208,6 +208,12 @@ p {
 .center {
   text-align: center;
 }
+/* `display` from a class beats the UA stylesheet's rule for [hidden], so a
+   flex container marked hidden stays on screen. Say it once, here. */
+[hidden] {
+  display: none !important;
+}
+
 .truncate {
   overflow: hidden;
   text-overflow: ellipsis;

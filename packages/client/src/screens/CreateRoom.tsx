@@ -1,6 +1,6 @@
 /** Create a table: format presets plus every knob for people who want them. */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import {
   defaultWallsFor,
@@ -42,6 +42,10 @@ export function CreateRoom(): ReactNode {
   const [walls, setWalls] = useState(10);
   const [preset, setPreset] = useState<Preset>(PRESETS[1]);
   const [creating, setCreating] = useState(false);
+  // The server greets a reconnect with the room it still has us in. Only a
+  // `room` that answers *our* create should move us on, or opening this screen
+  // straight after a game bounces you back into the old table.
+  const awaitingCreate = useRef(false);
 
   useEffect(() => setWalls(defaultWallsFor(players, size, mode)), [players, size, mode]);
 
@@ -49,9 +53,12 @@ export function CreateRoom(): ReactNode {
     connection.connect();
     return connection.onMessage((msg) => {
       if (msg.t === 'room') {
+        if (!awaitingCreate.current) return;
+        awaitingCreate.current = false;
         setCreating(false);
         go({ name: 'room', code: msg.room.code });
       } else if (msg.t === 'error') {
+        awaitingCreate.current = false;
         // Never leave the button spinning on a refusal — say what happened and
         // let the player try again.
         setCreating(false);
@@ -83,6 +90,7 @@ export function CreateRoom(): ReactNode {
       moveTimeoutMs: preset.moveTimeoutMs,
     };
     setCreating(true);
+    awaitingCreate.current = true;
     connection.send({ t: 'room.create', name, visibility, config, rated });
   };
 
