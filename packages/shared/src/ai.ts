@@ -167,6 +167,11 @@ export interface SearchResult {
   ms: number;
   /** Principal variation, best first. */
   pv: Move[];
+  /**
+   * Every root move with its score, best first. Only filled when asked for —
+   * review needs it, play does not.
+   */
+  ranking?: { move: Move; score: number }[];
 }
 
 // ------------------------------------------------------------------ Zobrist
@@ -598,7 +603,10 @@ export class Bot {
    * Pick a move for the seat currently on turn.
    * `strict` disables the level's deliberate inaccuracy (used for hints).
    */
-  choose(game: Game, opts: { strict?: boolean; timeMs?: number } = {}): SearchResult {
+  choose(
+    game: Game,
+    opts: { strict?: boolean; timeMs?: number; ranking?: boolean } = {},
+  ): SearchResult {
     const started = Date.now();
     const g = game.clone();
     const me = g.turn;
@@ -720,6 +728,7 @@ export class Bot {
       nodes: this.nodes,
       ms: Date.now() - started,
       pv: chosenIndex === 0 ? bestPv : [chosen.move],
+      ...(opts.ranking ? { ranking: ranking.map((r) => ({ move: r.move, score: r.score })) } : {}),
     };
   }
 
@@ -787,10 +796,20 @@ export class Bot {
     const budget = timeMs ?? Math.min(this.profile.timeMs, 400);
     const board = game.clone();
     const mover = board.turn;
-    const best = this.choose(board, { strict: true, timeMs: budget });
+    const best = this.choose(board, { strict: true, timeMs: budget, ranking: true });
 
     let playedScore: number;
-    if (movesEqual(best.move, played)) {
+    // The honest comparison is between two moves scored by the *same* search.
+    // Scoring the played move by searching the position after it instead looks
+    // equivalent and is not: that search is a ply deeper and answers from the
+    // opponent's side of the board. On a duel that bias is small enough to
+    // hide; in a race, where both players advance towards the same line and
+    // the evaluation swings every ply, it made almost every sensible move
+    // come out as a mistake.
+    const scored = best.ranking?.find((r) => movesEqual(r.move, played));
+    if (scored) {
+      playedScore = scored.score;
+    } else if (movesEqual(best.move, played)) {
       playedScore = best.score;
     } else {
       const after = board.clone();

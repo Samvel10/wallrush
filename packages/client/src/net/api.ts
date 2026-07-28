@@ -1,6 +1,6 @@
 /** Thin REST client. Everything that is not realtime goes through here. */
 
-import type { RatingTier } from '@wallrush/shared';
+import type { GameMode, RatingTier } from '@wallrush/shared';
 
 export interface Profile {
   id: string;
@@ -167,6 +167,8 @@ export const api = {
   reportLocalMatch: (input: {
     transcript: string;
     size: number;
+    /** Without this the server rebuilds the wrong board and drops the game. */
+    mode: GameMode;
     players: number;
     wallsPerPlayer: number;
     seat: number;

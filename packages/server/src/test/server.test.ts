@@ -479,6 +479,69 @@ test('the API only answers the origins it was told about', async () => {
   assert.equal(res.headers.get('vary'), 'Origin', 'a reflected origin must not be cached across callers');
 });
 
+test('a race played offline is recorded, not silently dropped', async () => {
+  const reg = await postJson<{ token: string }>(server.url, '/api/auth/register', {
+    username: 'race_recorder',
+    password: 'long-enough-password',
+  });
+
+  // Play a real race out to the finish and send the moves, exactly as the
+  // client does after an offline game.
+  const game = new Game({ mode: 'race' });
+  for (let i = 0; i < 400 && game.winner === null; i++) {
+    assert.ok(game.apply(bestStep(game, game.turn)).ok);
+  }
+  assert.equal(game.winner, 0);
+  const text = transcript(
+    game.history.map((h) => h.move),
+    game.rows,
+  );
+
+  const good = await postJson<{ id: string; result: string }>(
+    server.url,
+    '/api/matches/local',
+    {
+      transcript: text,
+      size: game.cols,
+      mode: 'race',
+      players: 2,
+      wallsPerPlayer: game.config.wallsPerPlayer,
+      seat: 0,
+      botLevel: 'easy',
+      startedAt: Date.now() - 60_000,
+    },
+    reg.body.token,
+  );
+  assert.equal(good.status, 200, 'a race transcript must be accepted');
+  assert.equal(good.body.result, 'win');
+
+  // The same moves on the wrong board are illegal from the first step, which
+  // is what used to happen to every race game.
+  const wrongBoard = await postJson<{ error: string }>(
+    server.url,
+    '/api/matches/local',
+    {
+      transcript: text,
+      size: 9,
+      mode: 'duel',
+      players: 2,
+      wallsPerPlayer: game.config.wallsPerPlayer,
+      seat: 0,
+      botLevel: 'easy',
+      startedAt: Date.now() - 60_000,
+    },
+    reg.body.token,
+  );
+  assert.equal(wrongBoard.status, 400);
+
+  const history = await getJson<{ matches: { id: string }[] }>(
+    server.url,
+    '/api/me/history',
+    reg.body.token,
+  );
+  assert.equal(history.body.matches.length, 1, 'the race shows up in history');
+});
+
 test('a bot fills a seat and plays on its own', async () => {
   const host = await TestClient.connect(server.url);
   await host.waitFor('welcome');

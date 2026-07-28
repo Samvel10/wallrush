@@ -112,6 +112,7 @@ export function PlayLocal({
       .reportLocalMatch({
         transcript: text,
         size: local.game.size,
+        mode,
         players: local.game.config.players,
         wallsPerPlayer: local.game.config.wallsPerPlayer,
         seat: 0,

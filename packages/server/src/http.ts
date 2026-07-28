@@ -15,6 +15,7 @@ import {
   BOT_LEVELS,
   BOT_RATING,
   rowsFor,
+  type GameMode,
   Game,
   cloneConfig,
   parseTranscript,
@@ -428,6 +429,7 @@ async function handleApi(
     const body = (await readBody(req)) as {
       transcript?: string;
       size?: number;
+      mode?: string;
       players?: number;
       wallsPerPlayer?: number;
       seat?: number;
@@ -438,9 +440,14 @@ async function handleApi(
     // The client reports the moves, not the result. Replaying the transcript
     // through the same engine the server uses is what makes this trustworthy:
     // a forged win would have to be an actual legal winning game.
+    // The board has to be rebuilt exactly, mode included: a race transcript
+    // replayed on a duel board is illegal from its first move, and the game
+    // would be dropped rather than recorded.
+    const mode: GameMode = body.mode === 'race' ? 'race' : 'duel';
     const config = cloneConfig({
-      size: (body.size === 5 || body.size === 7 || body.size === 11 ? body.size : 9),
-      players: body.players === 4 ? 4 : 2,
+      size: mode === 'race' ? 9 : body.size === 5 || body.size === 7 || body.size === 11 ? body.size : 9,
+      mode,
+      players: mode === 'race' ? 2 : body.players === 4 ? 4 : 2,
       wallsPerPlayer: body.wallsPerPlayer,
       clockMs: 0,
       incrementMs: 0,
