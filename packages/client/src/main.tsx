@@ -52,6 +52,20 @@ window.__wallrush = {
 // Offline play against a bot should survive a lost connection.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+    void navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        // A browser only looks for a new service worker when it navigates, and
+        // this is a hash router: moving between screens never fetches anything.
+        // Without asking, a tab left open can serve yesterday's build for a
+        // day — and the "newer version" notice, which waits on the handover,
+        // would never fire. Ask on a timer and whenever the tab comes back.
+        const check = () => void registration.update().catch(() => undefined);
+        window.setInterval(check, 30 * 60 * 1000);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') check();
+        });
+      })
+      .catch(() => undefined);
   });
 }

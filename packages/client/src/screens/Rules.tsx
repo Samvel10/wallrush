@@ -134,6 +134,17 @@ export function Rules(): ReactNode {
         <p className="muted">{t.rules.time}</p>
       </div>
 
+      {/* The game has keyboard controls and nothing said so, which is the same
+          as not having them. Hidden on touch, where there is no keyboard. */}
+      <div className="card stack-sm keys-only">
+        <h2 style={{ fontSize: 'var(--text-lg)' }}>{t.rules.keysTitle}</h2>
+        <ul className="muted" style={{ paddingInlineStart: '1.1em', display: 'grid', gap: 8 }}>
+          {t.rules.keys.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </div>
+
       <div className="card stack-sm">
         <h2 style={{ fontSize: 'var(--text-lg)' }}>{t.rules.tipsTitle}</h2>
         <ul className="muted" style={{ paddingInlineStart: '1.1em', display: 'grid', gap: 8 }}>

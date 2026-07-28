@@ -321,6 +321,13 @@ export const en: Dictionary = {
       jump: 'Jumping',
       block: 'Sealing in',
     },
+    keysTitle: 'From the keyboard',
+    keys: [
+      'Arrows — step the way you see it on screen. If your opponent is next to you, the same arrow makes the jump.',
+      'M — move mode · W — wall mode',
+      'R — turn the wall: horizontal to vertical and back',
+      'P — show or hide your own shortest route',
+    ],
     tipsTitle: 'Tips',
     tips: [
       'Walls are expensive — one wall costs you a whole tempo. Spend one only when it really lengthens your opponent’s route.',

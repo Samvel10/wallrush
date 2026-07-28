@@ -273,3 +273,10 @@ p {
     gap: var(--space-4);
   }
 }
+
+/* Keyboard help is only help where there is a keyboard. */
+@media (hover: none) and (pointer: coarse) {
+  .keys-only {
+    display: none;
+  }
+}
