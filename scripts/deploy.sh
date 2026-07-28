@@ -49,12 +49,34 @@ cd "$here"
 
 FORCE=no
 BUILD=yes
+CHECKS=yes
 for arg in "$@"; do
   case $arg in
     --skip-build) BUILD=no ;;
+    --skip-checks) CHECKS=no ;;
     --force) FORCE=yes ;;
   esac
 done
+
+# Lint, types and tests before anything leaves this machine.
+#
+# This exists because a lint error reached production three times in a row: I
+# ran the checks by hand and read the tail of the output, which shows eslint's
+# banner rather than its findings. A gate that reads the exit code does not
+# make that mistake.
+if [[ $CHECKS == yes ]]; then
+  echo "→ checking (lint, types, tests)"
+  for check in lint typecheck test; do
+    if npm run "$check" >"/tmp/wallrush-deploy-$check.log" 2>&1; then
+      echo "   $check ok"
+    else
+      echo "✗ $check failed — not deploying." >&2
+      tail -25 "/tmp/wallrush-deploy-$check.log" >&2
+      echo "  (full output in /tmp/wallrush-deploy-$check.log; --skip-checks overrides)" >&2
+      exit 1
+    fi
+  done
+fi
 
 # Rooms live in memory, so a restart ends whatever is being played. Ask before
 # doing that to somebody mid-game; --force says you already know.
