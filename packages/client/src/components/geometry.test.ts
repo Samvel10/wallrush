@@ -175,3 +175,63 @@ test('every intersection is reachable by pointing at it', () => {
     }
   }
 });
+
+// ------------------------------------------------------------ rectangles
+
+/**
+ * A race board is nine wide and thirteen tall, so one percent across is not
+ * one percent down. Everything below is the same arithmetic as above, asked
+ * of a board where the two axes genuinely differ.
+ */
+test('a rectangular board measures its two axes separately', () => {
+  const m = metricsFor(13, 9);
+  assert.equal(m.rows, 13);
+  assert.equal(m.cols, 9);
+  assert.ok(m.x.cell > m.y.cell, 'fewer columns means each one takes more width');
+  for (const axis of [m.x, m.y]) {
+    assert.ok(Math.abs(axis.gap - axis.cell * GAP_RATIO) < 1e-9);
+    assert.ok(Math.abs(axis.pitch - (axis.cell + axis.gap)) < 1e-9);
+  }
+});
+
+test('the last cell of a rectangular board still ends at the edge', () => {
+  const m = metricsFor(13, 9);
+  const last = cellBox(m, 12, 8);
+  assert.ok(Math.abs(pct(last.left) + pct(last.width) - 100) < 1e-9, 'right edge');
+  assert.ok(Math.abs(pct(last.top) + pct(last.height) - 100) < 1e-9, 'bottom edge');
+});
+
+test('walls on a rectangular board span two cells along their own axis', () => {
+  const m = metricsFor(13, 9);
+  const h = wallBox(m, 5, 3, 0);
+  assert.ok(Math.abs(pct(h.width) - (2 * m.x.cell + m.x.gap)) < 1e-9);
+  assert.ok(Math.abs(pct(h.height) - m.y.gap) < 1e-9);
+
+  const v = wallBox(m, 5, 3, 1);
+  assert.ok(Math.abs(pct(v.height) - (2 * m.y.cell + m.y.gap)) < 1e-9);
+  assert.ok(Math.abs(pct(v.width) - m.x.gap) < 1e-9);
+});
+
+test('a pointer over a tall board finds the slot under it', () => {
+  const m = metricsFor(13, 9);
+  for (const [r, c] of [
+    [0, 0],
+    [6, 4],
+    [11, 7],
+  ] as const) {
+    for (const o of [0, 1] as const) {
+      const box = slotBox(m, r, c, o);
+      // Aim at the middle of the slot's own box and expect to land on it.
+      const x = pct(box.left) + pct(box.width) / 2;
+      const y = pct(box.top) + pct(box.height) / 2;
+      assert.deepEqual(nearestSlot(m, x, y, o), { r, c }, `slot ${r},${c} orientation ${o}`);
+    }
+  }
+});
+
+test('a pointer past the last row or column finds nothing', () => {
+  const m = metricsFor(13, 9);
+  assert.equal(nearestSlot(m, 99, 99, 0), null, 'the far corner has no slot');
+  assert.equal(nearestSlot(m, 99, 99, 1), null);
+  assert.equal(nearestSlot(m, -5, -5, 0), null, 'nor does outside the board');
+});

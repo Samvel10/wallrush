@@ -103,7 +103,7 @@ with a thumb.
 ## Testing
 
 ```bash
-npm test          # 109 tests: engine, bot, analysis, notation, Elo, geometry, server
+npm test          # 139 tests: engine, bot, analysis, notation, Elo, geometry, server
 npm run typecheck
 ```
 
