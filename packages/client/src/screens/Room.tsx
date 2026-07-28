@@ -345,7 +345,11 @@ export function Room({ code }: { code: string }): ReactNode {
       ) : null}
 
       <Modal
-        open={online.drawOfferBy !== null && online.drawOfferBy !== online.mySeat}
+        open={
+          online.result === null &&
+          online.drawOfferBy !== null &&
+          online.drawOfferBy !== online.mySeat
+        }
         onClose={() => connection.send({ t: 'game.drawAnswer', accept: false })}
         title={t.game.drawOffered}
       >

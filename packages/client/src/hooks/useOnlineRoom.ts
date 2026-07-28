@@ -118,6 +118,9 @@ export function useOnlineRoom(myUserId: string | null): OnlineRoomApi {
             ratings: msg.ratings,
             matchId: msg.matchId,
           });
+          // An accepted draw ends the game, so the offer is no longer pending.
+          // Without this the offer dialog stays open on top of the result.
+          setDrawOfferBy(null);
           break;
 
         case 'game.drawOffer':

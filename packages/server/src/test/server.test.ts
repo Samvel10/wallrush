@@ -282,6 +282,16 @@ test('a draw needs both players to agree', async () => {
   const over = await a.waitFor('game.over');
   assert.equal(over.winner, null);
   assert.equal(over.ending, 'draw');
+  assert.equal(Game.fromState(over.state).isOver, true);
+
+  // Answering again after the game is over must not resurrect anything.
+  b.send({ t: 'game.drawAnswer', accept: true });
+  a.send({ t: 'game.drawOffer' });
+  const stray = await b
+    .waitFor('game.drawOffer', undefined, 1200)
+    .then(() => 'relayed')
+    .catch(() => 'ignored');
+  assert.equal(stray, 'ignored', 'a finished game does not take draw offers');
 
   a.close();
   b.close();

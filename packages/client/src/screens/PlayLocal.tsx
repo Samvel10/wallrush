@@ -351,7 +351,9 @@ export function ResultModal({
           {t.result.moves}
         </p>
 
-        {ratingDelta ? (
+        {/* A rating row that says "1200 → 1200 +0" is noise: unrated games and
+            guest accounts never move the ladder. */}
+        {ratingDelta && ratingDelta.delta !== 0 ? (
           <div className="card card-tight row row-center" style={{ gap: 12 }}>
             <span className="uppercase" style={{ margin: 0 }}>
               {t.result.ratingChange}
