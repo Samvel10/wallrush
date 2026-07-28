@@ -47,7 +47,30 @@ run_remote() {
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$here"
 
-if [[ ${1:-} != --skip-build ]]; then
+FORCE=no
+BUILD=yes
+for arg in "$@"; do
+  case $arg in
+    --skip-build) BUILD=no ;;
+    --force) FORCE=yes ;;
+  esac
+done
+
+# Rooms live in memory, so a restart ends whatever is being played. Ask before
+# doing that to somebody mid-game; --force says you already know.
+echo "→ checking for games in progress"
+# `|| true` because this link times out often and an unreachable health check
+# is not a reason to refuse to deploy — only a confirmed game is.
+playing=$(curl -sk --max-time 20 "https://$DOMAIN/api/health" 2>/dev/null | sed -n 's/.*"playing":\([0-9]*\).*/\1/p' || true)
+playing=${playing:-unknown}
+echo "   playing: $playing"
+if [[ $playing != 0 && $playing != unknown && $FORCE != yes ]]; then
+  echo "✗ $playing game(s) in progress — a restart would end them." >&2
+  echo "  Wait, or run with --force." >&2
+  exit 1
+fi
+
+if [[ $BUILD == yes ]]; then
   echo "→ building"
   npm run build >/dev/null
 fi
@@ -67,7 +90,9 @@ tar czf "$stage/bundle.tgz" -C "$stage" package.json package-lock.json packages
 du -h "$stage/bundle.tgz" | cut -f1 | sed 's/^/   bundle /'
 
 echo "→ shipping"
-retry scp -i "$KEY" -o ConnectTimeout=25 "$stage/bundle.tgz" "$HOST:/tmp/wallrush-bundle.tgz" >/dev/null
+# The redirect belongs to scp, not to `retry` — put it outside and the retry
+# notices vanish with it, which is how a silent failure looks like success.
+retry scp -i "$KEY" -o ConnectTimeout=25 -q "$stage/bundle.tgz" "$HOST:/tmp/wallrush-bundle.tgz"
 
 echo "→ installing and restarting"
 cat > "$stage/install.sh" <<REMOTE_SCRIPT
