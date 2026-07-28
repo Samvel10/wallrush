@@ -67,7 +67,12 @@ export interface ChatLine {
 // ------------------------------------------------------------ client → server
 
 export type ClientMessage =
-  | { t: 'hello'; token?: string; name?: string; lang?: string; version: number }
+  /**
+   * Ask for the greeting again. It carried a `token` once; authentication is
+   * the `auth` frame's job now, and a field the server ignores is worse than
+   * no field — it reads like a way in.
+   */
+  | { t: 'hello' }
   /**
    * Prove who you are after connecting.
    *
