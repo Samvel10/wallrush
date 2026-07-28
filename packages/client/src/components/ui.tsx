@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -63,6 +64,16 @@ export function useToast(): ToastValue {
 
 // -------------------------------------------------------------------- modal
 
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+function focusableIn(root: HTMLElement | null): HTMLElement[] {
+  if (!root) return [];
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+    (el) => el.offsetParent !== null || el === document.activeElement,
+  );
+}
+
 export function Modal({
   open,
   onClose,
@@ -79,19 +90,53 @@ export function Modal({
   dismissable?: boolean;
 }): ReactNode {
   const ref = useRef<HTMLDivElement>(null);
+  const returnTo = useRef<HTMLElement | null>(null);
+  const titleId = useId();
 
   useEffect(() => {
     if (!open) return;
+    returnTo.current = document.activeElement as HTMLElement | null;
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && dismissable) onClose();
+      if (e.key === 'Escape' && dismissable) {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      // `aria-modal` promises the rest of the page is inert. Without a trap,
+      // Tab walks straight out of the dialog and behind it, and the keyboard
+      // user is left operating a page they cannot see.
+      const items = focusableIn(ref.current);
+      if (items.length === 0) {
+        e.preventDefault();
+        ref.current?.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === ref.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+
     document.addEventListener('keydown', onKey);
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    ref.current?.focus();
+    // Prefer the first control: a dialog that opens with its primary button
+    // already focused takes one keystroke to answer.
+    (focusableIn(ref.current)[0] ?? ref.current)?.focus();
+
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = previous;
+      // Hand focus back where it came from, or every closed dialog restarts
+      // the keyboard user at the top of the page.
+      returnTo.current?.focus?.();
     };
   }, [open, onClose, dismissable]);
 
@@ -108,9 +153,14 @@ export function Modal({
         className={`modal${wide ? ' modal-wide' : ''}`}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
       >
-        {title ? <h2 className="modal-title">{title}</h2> : null}
+        {title ? (
+          <h2 className="modal-title" id={titleId}>
+            {title}
+          </h2>
+        ) : null}
         {children}
       </div>
     </div>
