@@ -201,6 +201,35 @@
   display: grid;
   place-items: center;
 }
+/*
+ * The finger target, separate from the box that positions the bar.
+ *
+ * The slot's own box is a fraction of a cell, and on a race track — which is
+ * height-limited, so its cells are small — that lands around 17px on a phone,
+ * under the 24px this project holds itself to. This grows what a finger can
+ * hit without moving what the eye can see. Only one orientation is on screen
+ * at a time, and slots of the same orientation sit a whole cell apart, so the
+ * enlarged targets do not fight each other.
+ */
+.wall-slot::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: max(100%, 24px);
+  transform: translateY(-50%);
+}
+.wall-slot.is-v::after {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  right: auto;
+  height: auto;
+  width: max(100%, 24px);
+  transform: translateX(-50%);
+}
+
 .wall-slot::before {
   content: '';
   border-radius: var(--radius-full);
