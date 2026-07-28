@@ -68,6 +68,14 @@ export interface ChatLine {
 
 export type ClientMessage =
   | { t: 'hello'; token?: string; name?: string; lang?: string; version: number }
+  /**
+   * Prove who you are after connecting.
+   *
+   * The alternative is a token in the socket URL, and a URL is written down
+   * everywhere — proxy logs, referrers, browser history. A first frame is
+   * seen by the server and nothing else.
+   */
+  | { t: 'auth'; token: string }
   | { t: 'ping'; at: number }
   | { t: 'lobby.subscribe' }
   | { t: 'lobby.unsubscribe' }

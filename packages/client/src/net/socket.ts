@@ -25,12 +25,18 @@ const CLOSE_REPLACED = 4001;
 type Listener = (msg: ServerMessage) => void;
 type StateListener = (state: ConnectionState, latencyMs: number) => void;
 
+/**
+ * The socket address carries no credential.
+ *
+ * A URL is written down everywhere — the proxy's access log, referrers,
+ * browser history — so the token goes in the first frame instead, where only
+ * the server sees it. The language is a preference, not a secret, and stays in
+ * the query so a brand-new guest is named in the right language.
+ */
 function socketUrl(): string {
   const base = API_BASE || window.location.origin;
   const url = new URL('/ws', base);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-  const token = storedToken();
-  if (token) url.searchParams.set('token', token);
   const lang = window.localStorage.getItem('wallrush.lang');
   if (lang) url.searchParams.set('lang', lang);
   return url.toString();
@@ -81,6 +87,10 @@ export class Connection {
       if (!isCurrent()) return;
       this.retries = 0;
       this.setState('open');
+      // Before anything else: if we have an identity, claim it. The server
+      // greets every new socket as a guest, and this turns it into us.
+      const token = storedToken();
+      if (token) socket.send(JSON.stringify({ t: 'auth', token } satisfies ClientMessage));
       const pending = this.queue;
       this.queue = [];
       for (const msg of pending) this.send(msg);

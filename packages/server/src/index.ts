@@ -199,6 +199,62 @@ function participantFor(client: Client) {
   };
 }
 
+/**
+ * Move a live connection onto the identity it just proved.
+ *
+ * The guest it arrived as is left behind — housekeeping collects guests with
+ * no games — and anything that identity was already doing (a game in another
+ * tab, a room it is seated in) is picked up exactly as a fresh connection
+ * would pick it up.
+ */
+function adoptIdentity(client: Client, user: UserRow): void {
+  const previous = client.user;
+  if (byUser.get(previous.id) === client) {
+    byUser.delete(previous.id);
+    hub.markOffline(previous.id);
+  }
+
+  // One live connection per identity, same rule as on connect.
+  const existing = byUser.get(user.id);
+  if (existing && existing !== client) {
+    try {
+      existing.socket.close(4001, 'replaced');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  client.user = user;
+  byUser.set(user.id, client);
+  hub.markOnline(user.id);
+  touchUser(user.id);
+  if (config.debug) {
+    process.stdout.write(`~ ${previous.id.slice(0, 8)} → ${user.id.slice(0, 8)} (auth)\n`);
+  }
+
+  send(client, {
+    t: 'welcome',
+    user: toPublicUser(user),
+    version: PROTOCOL_VERSION,
+    online: hub.onlineCount,
+  });
+
+  const room = hub.roomOf(user.id);
+  if (!room) return;
+  room.attach(participantFor(client));
+  send(client, { t: 'room', room: room.toInfo() });
+  if (!room.game) return;
+  send(client, {
+    t: 'game.start',
+    room: room.toInfo(),
+    state: room.game.toState(),
+    seat: room.seatOf(user.id),
+    serverNow: Date.now(),
+  });
+  const result = room.result;
+  if (room.status === 'finished' && result) send(client, result);
+}
+
 function withinRateLimit(client: Client): boolean {
   const now = Date.now();
   if (now - client.windowStart > 1000) {
@@ -220,6 +276,20 @@ function handleMessage(client: Client, msg: ClientMessage): void {
         version: PROTOCOL_VERSION,
         online: hub.onlineCount,
       });
+      return;
+    }
+
+    case 'auth': {
+      // A connection starts as a guest and can be handed its real identity
+      // here. Keeping the token out of the URL keeps it out of every log and
+      // referrer between the browser and this process.
+      const claimed = userFromToken(msg.token);
+      if (!claimed) {
+        fail(client, 'bad-token');
+        return;
+      }
+      if (claimed.id === client.user.id) return;
+      adoptIdentity(client, claimed);
       return;
     }
 

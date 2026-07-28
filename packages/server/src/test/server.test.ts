@@ -425,6 +425,47 @@ test('the endpoints that cost something are rate limited', async () => {
   assert.equal(health.status, 200);
 });
 
+test('an identity is proved in the first frame, not in the URL', async () => {
+  // Register, then connect with no token at all and claim the account.
+  const reg = await postJson<{ token: string; user: { id: string; name: string } }>(
+    server.url,
+    '/api/auth/register',
+    { username: 'frame_auth', password: 'long-enough-password', displayName: 'Կադր' },
+  );
+  assert.equal(reg.status, 200);
+
+  const c = await TestClient.connect(server.url);
+  const asGuest = await c.waitFor('welcome');
+  assert.equal(asGuest.user.guest, true, 'a bare socket is a guest');
+
+  c.send({ t: 'auth', token: reg.body.token });
+  const asUser = await c.waitFor('welcome', (m) => m.user.guest === false);
+  assert.equal(asUser.user.id, reg.body.user.id);
+  assert.equal(asUser.user.name, 'Կադր');
+
+  // The identity is live, not just announced: the lobby now knows us.
+  c.send({ t: 'room.create', visibility: 'private', rated: false, config: {} });
+  const room = await c.waitFor('room');
+  assert.equal(room.room.seats[0].user?.id, reg.body.user.id);
+  c.close();
+});
+
+test('a bad token is refused and leaves the guest alone', async () => {
+  const c = await TestClient.connect(server.url);
+  const guest = await c.waitFor('welcome');
+  c.send({ t: 'auth', token: 'not.a.real.token' });
+  const err = await c.waitFor('error');
+  assert.equal(err.code, 'bad-token');
+
+  // Still usable as the guest it was.
+  c.send({ t: 'ping', at: Date.now() });
+  await c.waitFor('pong');
+  c.send({ t: 'room.create', visibility: 'private', rated: false, config: {} });
+  const room = await c.waitFor('room');
+  assert.equal(room.room.seats[0].user?.id, guest.user.id);
+  c.close();
+});
+
 test('a bot fills a seat and plays on its own', async () => {
   const host = await TestClient.connect(server.url);
   await host.waitFor('welcome');
