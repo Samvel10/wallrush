@@ -78,7 +78,11 @@ export function Room({ code }: { code: string }): ReactNode {
     const message =
       (t.errors as Record<string, string>)[key] ?? t.errors.generic;
     toast.push(message, 'error');
-    if (online.error === 'room-not-found') go({ name: 'lobby' }, true);
+    // Unless the game just ended: the server aborts live games as it goes
+    // down, so the result arrives a moment before the room stops existing.
+    // Taking the player to the lobby then would wipe the only explanation
+    // they were given.
+    if (online.error === 'room-not-found' && !online.result) go({ name: 'lobby' }, true);
     online.clearError();
   }, [online, toast, t, go]);
 

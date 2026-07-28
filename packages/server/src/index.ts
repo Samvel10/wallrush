@@ -557,12 +557,17 @@ server.listen(config.port, config.host, () => {
  * ends on its own — so without this the process (or a test run) simply hangs
  * with every assertion already passed.
  */
-export function closeRealtime(): void {
+export function closeRealtime(options: { graceful?: boolean } = {}): void {
   clearInterval(heartbeat);
   clearInterval(housekeeping);
   for (const client of clients.values()) {
     try {
-      client.socket.terminate();
+      // `terminate` drops the socket where it stands, discarding anything
+      // still queued — which is right for a test teardown and wrong on
+      // shutdown, where the last thing we sent is the result of the game we
+      // just ended. A graceful close flushes it first.
+      if (options.graceful) client.socket.close(1001, 'server-restart');
+      else client.socket.terminate();
     } catch {
       /* ignore */
     }
@@ -579,7 +584,7 @@ function shutdown(signal: string): void {
   // this is what they feel like from the other side.
   const ended = hub.abortLiveGames();
   if (ended > 0) process.stdout.write(`  ended ${ended} game(s) in progress\n`);
-  closeRealtime();
+  closeRealtime({ graceful: true });
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
 }
