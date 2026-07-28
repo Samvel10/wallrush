@@ -92,9 +92,14 @@ wss.on('connection', (socket, req) => {
   }
   touchUser(user.id);
 
+  if (config.debug) {
+    process.stdout.write(`+ socket for ${user.id.slice(0, 8)} (token=${token ? 'yes' : 'no'})\n`);
+  }
+
   // One live connection per identity: a second one replaces the first.
   const existing = byUser.get(user.id);
   if (existing) {
+    if (config.debug) process.stdout.write(`x replacing socket of ${user.id.slice(0, 8)}\n`);
     try {
       existing.socket.close(4001, 'replaced');
     } catch {
@@ -137,6 +142,11 @@ wss.on('connection', (socket, req) => {
         seat: existingRoom.seatOf(user.id),
         serverNow: Date.now(),
       });
+      // If it ended while they were away — a forfeit on a dropped connection,
+      // a clock running out during a refresh — hand them the result too, or
+      // they come back to a frozen board and no way to read it.
+      const result = existingRoom.result;
+      if (existingRoom.status === 'finished' && result) send(client, result);
     }
   }
 

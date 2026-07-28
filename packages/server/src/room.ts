@@ -95,6 +95,13 @@ export class Room {
   private botTimer: NodeJS.Timeout | null = null;
   private tickTimer: NodeJS.Timeout | null = null;
   private finishedAt = 0;
+  /**
+   * The `game.over` we broadcast, kept so a player who was offline when the
+   * game ended still learns how it ended. Losing on a dropped connection and
+   * coming back to a frozen board with no explanation is the worst way to
+   * find out.
+   */
+  private lastResult: Extract<ServerMessage, { t: 'game.over' }> | null = null;
   /** When the last member left, or null while somebody is here. */
   emptySince: number | null = Date.now();
   private onEvent: (room: Room, event: RoomEvent) => void;
@@ -171,6 +178,11 @@ export class Room {
       this.resign(userId);
     }
     this.detach(userId);
+  }
+
+  /** The result of the last finished game, for a client that missed it. */
+  get result(): Extract<ServerMessage, { t: 'game.over' }> | null {
+    return this.lastResult;
   }
 
   detach(userId: string): void {
@@ -299,6 +311,7 @@ export class Room {
     if (!this.canStart) return false;
     this.game = new Game(this.config);
     this.status = 'playing';
+    this.lastResult = null;
     this.startedAt = Date.now();
     this.turnStartedAt = Date.now();
     this.drawOfferBy = null;
@@ -554,14 +567,15 @@ export class Room {
     for (const s of this.seats) s.ready = false;
 
     const settled = this.settleRatings(winner, ending);
-    this.broadcast({
+    this.lastResult = {
       t: 'game.over',
       winner,
       ending,
       state: this.game.toState(),
       ratings: settled.ratings,
       ...(settled.matchId ? { matchId: settled.matchId } : {}),
-    });
+    };
+    this.broadcast(this.lastResult);
     this.emit({ type: 'finished' });
     this.emit({ type: 'update' });
   }

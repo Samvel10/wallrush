@@ -83,10 +83,13 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
   },
   hard: {
     level: 'hard',
-    depth: 5,
+    // Measured: depth 5 finished in 6ms and played no better than medium's
+    // depth 4 — the two levels were the same opponent wearing a different
+    // name. Seven plies is a real step up and still instant.
+    depth: 7,
     timeMs: 700,
-    rootWalls: 24,
-    innerWalls: 8,
+    rootWalls: 28,
+    innerWalls: 10,
     // A small, deliberate imprecision is what separates "hard" from "expert":
     // both search well, but only one of them plays the best move every time.
     blunder: 0.045,
@@ -96,19 +99,25 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
   },
   expert: {
     level: 'expert',
-    depth: 13,
-    timeMs: 1800,
+    // Depth beyond ~11 stopped converting into wins in head-to-head play, so
+    // the top two are separated the same way hard and expert are: by how
+    // often they settle for the second-best move, not by raw search.
+    depth: 11,
+    timeMs: 1400,
     rootWalls: 52,
     innerWalls: 16,
-    blunder: 0,
-    blunderSpread: 1,
+    blunder: 0.015,
+    blunderSpread: 2,
     wallShyness: 0,
     minThinkMs: 260,
   },
   master: {
     level: 'master',
-    depth: 20,
-    timeMs: 3000,
+    // 20 was never reached — the clock ran out around 16. Asking for what it
+    // can actually deliver keeps the ladder honest, and 2.4s is already a
+    // long time to watch a bot think.
+    depth: 16,
+    timeMs: 2400,
     rootWalls: 64,
     innerWalls: 20,
     blunder: 0,

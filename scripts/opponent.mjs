@@ -47,7 +47,9 @@ socket.on('message', (raw) => {
 });
 
 const send = (m) => socket.send(JSON.stringify(m));
-const wait = (type, filter, timeout = 15000) =>
+/** Generous by default: a human driving the other side is slow. */
+const WAIT_MS = Number(opt('timeout', 120000));
+const wait = (type, filter, timeout = WAIT_MS) =>
   new Promise((res, rej) => {
     const match = (m) => m.t === type && (!filter || filter(m));
     const i = inbox.findIndex(match);

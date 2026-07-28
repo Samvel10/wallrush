@@ -297,6 +297,49 @@ test('a draw needs both players to agree', async () => {
   b.close();
 });
 
+test('a player who was offline when the game ended still gets the result', async () => {
+  const a = await TestClient.connect(server.url);
+  const b = await TestClient.connect(server.url);
+  await a.waitFor('welcome');
+  const bWelcome = await b.waitFor('welcome');
+  const bToken = bWelcome.token;
+  assert.ok(bToken, 'a guest is handed a token so it can come back');
+
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { size: 5, clockMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+  });
+  const created = await a.waitFor('room');
+  b.send({ t: 'room.join', code: created.room.code });
+  await b.waitFor('room', (m) => m.room.seats[1].user !== null);
+  a.send({ t: 'room.ready', ready: true });
+  b.send({ t: 'room.ready', ready: true });
+  await a.waitFor('game.start');
+  await b.waitFor('game.start');
+
+  // B drops — a phone locking its screen, a tunnel, a closed laptop — and the
+  // game ends while they are away.
+  b.close();
+  await new Promise((r) => setTimeout(r, 120));
+  a.send({ t: 'game.resign' });
+  const over = await a.waitFor('game.over');
+  assert.equal(over.winner, 1, 'the player who stayed loses by resignation');
+
+  // Coming back must explain what happened rather than showing a frozen board.
+  const back = await TestClient.connect(server.url, bToken);
+  await back.waitFor('welcome');
+  await back.waitFor('game.start');
+  const replayed = await back.waitFor('game.over');
+  assert.equal(replayed.winner, 1);
+  assert.equal(replayed.ending, 'resign');
+  assert.equal(Game.fromState(replayed.state).isOver, true);
+
+  a.close();
+  back.close();
+});
+
 test('a bot fills a seat and plays on its own', async () => {
   const host = await TestClient.connect(server.url);
   await host.waitFor('welcome');

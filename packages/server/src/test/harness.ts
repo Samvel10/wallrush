@@ -47,6 +47,10 @@ export async function startServer(): Promise<TestServer> {
     port,
     url: `http://127.0.0.1:${port}`,
     async close() {
+      // A failing test usually leaves its sockets open, and `close` waits for
+      // every connection to end — so without this the suite hangs instead of
+      // reporting the failure.
+      server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       rmSync(dir, { recursive: true, force: true });
     },
