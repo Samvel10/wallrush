@@ -74,6 +74,13 @@ const MIME: Record<string, string> = {
 
 const MAX_BODY = 64 * 1024;
 
+/**
+ * `*` reflects whatever origin asked, which is convenient while developing on
+ * two ports and wrong once the thing is public: it lets any page in any tab
+ * call the API from a visitor's browser — a free set of proxies for guessing
+ * passwords, one per victim, each with its own address and so its own budget.
+ * Production names its origin (`WALLRUSH_ORIGINS`).
+ */
 export function corsHeaders(origin: string | undefined): Record<string, string> {
   const allowed = config.origins === '*' ? (origin ?? '*') : config.origins;
   return {
@@ -96,6 +103,8 @@ function sendJson(
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(payload),
     'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'same-origin',
     ...corsHeaders(origin),
   });
   res.end(payload);

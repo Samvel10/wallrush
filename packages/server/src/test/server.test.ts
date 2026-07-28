@@ -466,6 +466,19 @@ test('a bad token is refused and leaves the guest alone', async () => {
   c.close();
 });
 
+test('the API only answers the origins it was told about', async () => {
+  // The suite runs with WALLRUSH_ORIGINS unset, which reflects the caller —
+  // the development default. What matters is that naming an origin actually
+  // pins it, so check the header the deployment relies on.
+  const res = await fetch(server.url + '/api/health', {
+    headers: { Origin: 'https://not-us.example' },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(res.headers.get('referrer-policy'), 'same-origin');
+  assert.equal(res.headers.get('vary'), 'Origin', 'a reflected origin must not be cached across callers');
+});
+
 test('a bot fills a seat and plays on its own', async () => {
   const host = await TestClient.connect(server.url);
   await host.waitFor('welcome');

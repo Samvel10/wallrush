@@ -311,3 +311,14 @@ WAL-ի պատճառով սովորական `cp`-ն կարող է ֆայլը բռ
 Վերականգնում՝ `gunzip -c backup.gz > wallrush.sqlite`, դնել
 `/var/lib/wallrush/`-ում (ծառայությունը կանգնեցրած), `chown wallrush:wallrush`,
 գործարկել։ Ստուգված է. պահուստը բացվում է և պարունակում է բոլոր վեց աղյուսակները։
+
+
+### Անվտանգության կարգավորումներ
+
+- `WALLRUSH_ORIGINS=https://wallrush.duckdns.org` — **պարտադիր է արտադրության
+  համար**։ Լռելյայն `*`-ը արտացոլում է ցանկացած ծագում, ինչը զարգացման համար է։
+  Առանց դրա ցանկացած կայք կարող է այցելուի բրաուզերից կանչել մուտքի վերջնակետը։
+- Apache-ի vhost-ը դնում է `Strict-Transport-Security`, `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`։
+- Access log-ը գրում է **միայն մեթոդն ու ուղին** (`wallrush_nq` ձևաչափ)։
+  Հին client-ները token-ը դեռ ուղարկում են query-ով, և մատյանը դրա տեղը չէ։
