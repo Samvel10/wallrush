@@ -20,6 +20,7 @@ import {
 } from '@wallrush/shared';
 
 import { createGuest, issueToken, toPublicUser, userFromToken } from './auth.js';
+import { friendState } from './db.js';
 import { config } from './config.js';
 import { openDatabase, sweep, touchUser, type UserRow } from './db.js';
 import { Hub } from './hub.js';
@@ -392,10 +393,41 @@ function handleMessage(client: Client, msg: ClientMessage): void {
       return;
     }
 
+    case 'friend.invite': {
+      // Only an accepted friend can be invited, and only to a table you are
+      // actually sitting at — otherwise this is just a way to message people.
+      if (friendState(client.user.id, msg.userId) !== 'accepted') {
+        fail(client, 'not-friends');
+        return;
+      }
+      const room = hub.roomOf(client.user.id);
+      if (!room) {
+        fail(client, 'not-in-room');
+        return;
+      }
+      const target = byUser.get(msg.userId);
+      if (!target) {
+        fail(client, 'friend-offline');
+        return;
+      }
+      send(target, {
+        t: 'friend.invite',
+        from: toPublicUser(client.user),
+        code: room.code,
+        at: Date.now(),
+      });
+      return;
+    }
+
     default:
       fail(client, 'unknown-message');
   }
 }
+
+// A friendship changed: nudge everyone involved to re-read their list.
+hub.onFriendsChanged((userIds) => {
+  for (const id of userIds) sendToUser(id, { t: 'friends.changed' });
+});
 
 // Matchmaking hands us a fresh room; seat both players and let it start.
 hub.onMatchFound((code, userIds) => {

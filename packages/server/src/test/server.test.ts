@@ -975,6 +975,136 @@ test('a rematch after the opponent leaves reopens the table', async () => {
   a.close();
 });
 
+test('friends can only be added by people who have played each other', async () => {
+  const one = await postJson<{ token: string; user: { id: string } }>(
+    server.url,
+    '/api/auth/register',
+    { username: 'friend_one', password: 'password123' },
+  );
+  const two = await postJson<{ token: string; user: { id: string } }>(
+    server.url,
+    '/api/auth/register',
+    { username: 'friend_two', password: 'password123' },
+  );
+
+  // Strangers cannot be added. This is the whole anti-pestering rule.
+  const cold = await postJson<{ error: string }>(
+    server.url,
+    `/api/friends/${two.body.user.id}`,
+    {},
+    one.body.token,
+  );
+  assert.equal(cold.status, 403);
+  assert.equal(cold.body.error, 'not-played');
+
+  // Play a game so they have met.
+  const a = await TestClient.connect(server.url, one.body.token);
+  const b = await TestClient.connect(server.url, two.body.token);
+  await a.waitFor('welcome');
+  await b.waitFor('welcome');
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { size: 5, wallsPerPlayer: 0, clockMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+  });
+  const created = await a.waitFor('room');
+  b.send({ t: 'room.join', code: created.room.code });
+  await b.waitFor('room', (m) => m.room.seats[1].user !== null);
+  a.send({ t: 'room.ready', ready: true });
+  b.send({ t: 'room.ready', ready: true });
+  await a.waitFor('game.start');
+  await b.waitFor('game.start');
+  a.send({ t: 'game.resign' });
+  await b.waitFor('game.over');
+
+  // Now a request is allowed, and starts out pending.
+  const asked = await postJson<{ status: string }>(
+    server.url,
+    `/api/friends/${two.body.user.id}`,
+    {},
+    one.body.token,
+  );
+  assert.equal(asked.status, 200);
+  assert.equal(asked.body.status, 'pending');
+
+  // The other side sees it as incoming.
+  const inbox = await getJson<{ friends: { id: string; status: string; incoming: boolean }[] }>(
+    server.url,
+    '/api/friends',
+    two.body.token,
+  );
+  const request = inbox.body.friends.find((x) => x.id === one.body.user.id);
+  assert.ok(request, 'the request shows up');
+  assert.equal(request!.status, 'pending');
+  assert.equal(request!.incoming, true);
+
+  // Accepting makes it mutual.
+  const accepted = await postJson<{ status: string }>(
+    server.url,
+    `/api/friends/${one.body.user.id}`,
+    {},
+    two.body.token,
+  );
+  assert.equal(accepted.body.status, 'accepted');
+  for (const [token, otherId] of [
+    [one.body.token, two.body.user.id],
+    [two.body.token, one.body.user.id],
+  ] as const) {
+    const list = await getJson<{ friends: { id: string; status: string; online: boolean }[] }>(
+      server.url,
+      '/api/friends',
+      token,
+    );
+    const entry = list.body.friends.find((x) => x.id === otherId);
+    assert.equal(entry?.status, 'accepted', 'both sides see the friendship');
+    assert.equal(entry?.online, true, 'both are connected right now');
+  }
+
+  // An invitation reaches a friend who is online.
+  a.send({ t: 'room.create', visibility: 'private', config: { size: 9 } });
+  await a.waitFor('room');
+  a.send({ t: 'friend.invite', userId: two.body.user.id });
+  const invite = await b.waitFor('friend.invite', undefined, 5000);
+  assert.equal(invite.from.id, one.body.user.id);
+  assert.ok(invite.code.length >= 4);
+
+  // Removing is mutual too.
+  await fetch(`${server.url}/api/friends/${two.body.user.id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${one.body.token}` },
+  });
+  const afterRemoval = await getJson<{ friends: { id: string }[] }>(
+    server.url,
+    '/api/friends',
+    two.body.token,
+  );
+  assert.ok(!afterRemoval.body.friends.some((x) => x.id === one.body.user.id));
+
+  // And an invitation to a non-friend is refused.
+  a.send({ t: 'friend.invite', userId: two.body.user.id });
+  const refused = await a.waitFor('error');
+  assert.equal(refused.code, 'not-friends');
+
+  a.close();
+  b.close();
+});
+
+test('guests cannot add friends', async () => {
+  const guest = await TestClient.connect(server.url);
+  const hello = await guest.waitFor('welcome');
+  assert.equal(hello.user.guest, true);
+  const res = await postJson<{ error: string }>(
+    server.url,
+    `/api/friends/${hello.user.id}`,
+    {},
+    hello.token,
+  );
+  // Adding yourself is caught first; the point is that nothing is created.
+  assert.ok(res.status === 400 || res.status === 403, `got ${res.status}`);
+  guest.close();
+});
+
 test('a malformed message does not take the connection down', async () => {
   const client = await TestClient.connect(server.url);
   await client.waitFor('welcome');

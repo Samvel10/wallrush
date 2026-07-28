@@ -94,7 +94,9 @@ export type ClientMessage =
   | { t: 'game.drawAnswer'; accept: boolean }
   | { t: 'chat'; text: string; emote?: boolean }
   | { t: 'queue.join'; config: Partial<GameConfig>; rated?: boolean }
-  | { t: 'queue.leave' };
+  | { t: 'queue.leave' }
+  /** Asks the server to tell a friend about the room we are sitting in. */
+  | { t: 'friend.invite'; userId: string };
 
 // ------------------------------------------------------------ server → client
 
@@ -145,7 +147,11 @@ export type ServerMessage =
   | { t: 'game.drawDeclined' }
   | { t: 'chat'; line: ChatLine }
   | { t: 'queue.status'; waiting: number; since: number }
-  | { t: 'clock'; clocks: number[]; turn: PlayerIndex; serverNow: number };
+  | { t: 'clock'; clocks: number[]; turn: PlayerIndex; serverNow: number }
+  /** A friend wants you at their table. */
+  | { t: 'friend.invite'; from: PublicUser; code: string; at: number }
+  /** Something about your friends changed; re-read the list. */
+  | { t: 'friends.changed' };
 
 export function encode(msg: ServerMessage | ClientMessage): string {
   return JSON.stringify(msg);

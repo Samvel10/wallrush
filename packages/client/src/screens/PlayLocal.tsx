@@ -307,6 +307,7 @@ export function ResultModal({
   onRematch,
   onHome,
   onReview,
+  addFriend,
 }: {
   open: boolean;
   winner: number | null;
@@ -320,6 +321,8 @@ export function ResultModal({
   onHome(): void;
   /** Opens the stored replay. Absent for offline games, which are not stored. */
   onReview?(): void;
+  /** Offers to befriend the human you just played. Absent for bot games. */
+  addFriend?: { name: string; onAdd(): void; done: boolean } | null;
 }): ReactNode {
   const { t, f } = useI18n();
   const winnerSeat = winner !== null ? seats.find((s) => s.index === winner) : null;
@@ -371,6 +374,20 @@ export function ResultModal({
               {ratingDelta.delta}
             </span>
           </div>
+        ) : null}
+
+        {/* Right after a good game is the one moment someone actually wants to
+            add an opponent, so the offer belongs here rather than buried in a
+            profile screen. */}
+        {addFriend ? (
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={addFriend.onAdd}
+            disabled={addFriend.done}
+          >
+            {addFriend.done ? `✓ ${t.friends.added}` : `🤝 ${t.friends.add}`}
+          </button>
         ) : null}
 
         <div className="row" style={{ marginTop: 8 }}>

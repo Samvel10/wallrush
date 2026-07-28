@@ -17,6 +17,7 @@ import { GameView, MoveLog } from '../components/GameView.js';
 import { BackButton, Modal, Switch, useToast } from '../components/ui.js';
 import { useOnlineRoom } from '../hooks/useOnlineRoom.js';
 import { useI18n } from '../i18n/index.js';
+import { api } from '../net/api.js';
 import { connection } from '../net/socket.js';
 import { useRouter } from '../state/router.js';
 import { useSession } from '../state/session.js';
@@ -40,6 +41,7 @@ export function Room({ code }: { code: string }): ReactNode {
   const [floatingEmote, setFloatingEmote] = useState<
     { emoji: string; seat: number; id: number } | null
   >(null);
+  const [friendAdded, setFriendAdded] = useState(false);
   const joinedRef = useRef<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -410,6 +412,30 @@ export function Room({ code }: { code: string }): ReactNode {
           setShowResult(false);
         }}
         onHome={leave}
+        addFriend={
+          // Only for a real, signed-in human opponent — not bots, not guests.
+          (() => {
+            if (!profile || profile.guest || online.mySeat === null) return null;
+            const other = room.seats.find(
+              (s) => s.index !== online.mySeat && s.user && !s.user.guest,
+            );
+            if (!other?.user) return null;
+            const id = other.user.id;
+            return {
+              name: other.user.name,
+              done: friendAdded,
+              onAdd: () => {
+                void api
+                  .addFriend(id)
+                  .then(() => {
+                    setFriendAdded(true);
+                    toast.push(t.friends.added, 'success');
+                  })
+                  .catch(() => toast.push(t.errors.generic, 'error'));
+              },
+            };
+          })()
+        }
         onReview={
           online.result?.matchId
             ? () => {

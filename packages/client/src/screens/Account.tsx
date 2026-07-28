@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 
 import { tierOf } from '@wallrush/shared';
 
+import { FriendsCard } from '../components/Friends.js';
 import { BackButton, Switch, formatRelative, useToast } from '../components/ui.js';
 import { useI18n, LANGS, dictionaryFor } from '../i18n/index.js';
 import { ApiError, api, type HistoryItem, type LeaderboardRow } from '../net/api.js';
@@ -257,6 +258,8 @@ export function ProfileScreen(): ReactNode {
           </div>
         </div>
       ) : null}
+
+      <FriendsCard signedIn={signedIn} />
 
       <div className="card stack">
         <h2 style={{ fontSize: 'var(--text-lg)' }}>{t.settings.title}</h2>

@@ -3,6 +3,7 @@
  * A scriptable opponent, for driving the UI by hand without a second browser.
  *
  *   node scripts/opponent.mjs --code AB12C --do draw
+ *   node scripts/opponent.mjs --code AB12C --token <jwt> --do play --moves 20
  *   node scripts/opponent.mjs --code AB12C --do play --moves 3
  *
  * Actions: play (make N moves), draw (offer a draw), resign, chat, leave.
@@ -29,7 +30,10 @@ if (!CODE) {
   process.exit(1);
 }
 
-const socket = new WebSocket(URL_BASE.replace('http', 'ws') + '/ws');
+const TOKEN = opt('token', '');
+const socket = new WebSocket(
+  URL_BASE.replace('http', 'ws') + '/ws' + (TOKEN ? `?token=${TOKEN}` : ''),
+);
 const inbox = [];
 const waiters = [];
 socket.on('message', (raw) => {
@@ -55,7 +59,10 @@ const wait = (type, filter, timeout = 15000) =>
 await new Promise((r) => socket.on('open', r));
 await wait('welcome');
 send({ t: 'room.join', code: CODE });
-const room = await wait('room');
+// The server re-attaches a returning player to whatever room they were last
+// in, so the first `room` message may be about a different table. Wait for
+// the one we actually asked for.
+const room = await wait('room', (m) => m.room.code === CODE);
 process.stdout.write(`joined ${room.room.code}\n`);
 send({ t: 'room.ready', ready: true });
 

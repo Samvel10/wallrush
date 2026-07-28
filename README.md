@@ -35,6 +35,7 @@ deep play.
 | **Works offline** | The bot runs in a Web Worker; the PWA caches the shell. |
 | **Built for phones** | Every screen is designed touch-first, from 320 px up. |
 | **Game review** | Replay any finished game and have the engine mark every inaccuracy, mistake and blunder. |
+| **Friends** | Add someone you have played, see when they are online, pull them into your table. |
 | **Keyboard** | Arrows move, `W`/`R` place and rotate walls, `P` shows your route; replays scrub with arrows and `Space`. |
 
 ## Running it
@@ -100,7 +101,7 @@ with a thumb.
 ## Testing
 
 ```bash
-npm test          # 94 tests: engine, bot, analysis, notation, Elo, geometry, server
+npm test          # 101 tests: engine, bot, analysis, notation, Elo, geometry, server
 npm run typecheck
 ```
 

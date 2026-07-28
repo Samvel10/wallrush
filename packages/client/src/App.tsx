@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 
 import { BOT_LEVELS, type BotLevel } from '@wallrush/shared';
 
+import { FriendInvites, ReplacedNotice } from './components/Friends.js';
 import { BrandMark, LanguageSwitch } from './components/ui.js';
 import { useI18n } from './i18n/index.js';
 import { connection } from './net/socket.js';
@@ -61,6 +62,8 @@ export function App(): ReactNode {
       </main>
 
       {!inGame ? <BottomNav /> : null}
+      <FriendInvites />
+      <ReplacedNotice />
     </div>
   );
 }

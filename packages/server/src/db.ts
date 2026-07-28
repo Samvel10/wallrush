@@ -133,6 +133,21 @@ function migrate(d: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 
+    -- Friendship is stored as one row per direction, both written when a
+    -- request is accepted. That keeps "are we friends" a single indexed lookup
+    -- in either direction, which is what every read here actually asks.
+    CREATE TABLE IF NOT EXISTS friends (
+      user_id    TEXT NOT NULL,
+      friend_id  TEXT NOT NULL,
+      status     TEXT NOT NULL,          -- 'pending' (outgoing) | 'accepted'
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (user_id, friend_id),
+      FOREIGN KEY (user_id)   REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (friend_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_friends_friend ON friends(friend_id, status);
+
     CREATE TABLE IF NOT EXISTS stats_daily (
       day        TEXT PRIMARY KEY,
       games      INTEGER NOT NULL DEFAULT 0,
@@ -386,6 +401,99 @@ export function sweep(): void {
       WHERE guest = 1 AND games = 0 AND last_seen < ?
         AND id NOT IN (SELECT user_id FROM match_players)`,
   ).run(now - 7 * 24 * 60 * 60 * 1000);
+}
+
+// ------------------------------------------------------------------- friends
+
+export type FriendStatus = 'pending' | 'accepted';
+
+export interface FriendRow {
+  id: string;
+  display_name: string;
+  avatar: string;
+  rating: number;
+  last_seen: number;
+  status: FriendStatus;
+  /** True when they asked us, rather than the other way round. */
+  incoming: number;
+}
+
+/** Have these two actually played each other? Friend requests require it. */
+export function havePlayedTogether(a: string, b: string): boolean {
+  const row = database()
+    .prepare(
+      `SELECT 1 AS ok
+         FROM match_players p1
+         JOIN match_players p2 ON p1.match_id = p2.match_id AND p2.user_id = ?
+        WHERE p1.user_id = ?
+        LIMIT 1`,
+    )
+    .get(b, a) as { ok: number } | undefined;
+  return row !== undefined;
+}
+
+export function friendState(userId: string, otherId: string): FriendStatus | null {
+  const row = database()
+    .prepare('SELECT status FROM friends WHERE user_id = ? AND friend_id = ?')
+    .get(userId, otherId) as { status: FriendStatus } | undefined;
+  return row?.status ?? null;
+}
+
+/**
+ * Sends a request, or accepts one that is already waiting. Returns what the
+ * relationship became, so the caller does not have to ask again.
+ */
+export function requestFriend(userId: string, otherId: string): FriendStatus {
+  const now = nowMs();
+  const d = database();
+  const theirs = friendState(otherId, userId);
+  if (theirs === 'pending' || theirs === 'accepted') {
+    // They already asked us (or we are re-accepting): make it mutual.
+    d.prepare(
+      `INSERT INTO friends (user_id, friend_id, status, created_at) VALUES (?, ?, 'accepted', ?)
+       ON CONFLICT(user_id, friend_id) DO UPDATE SET status = 'accepted'`,
+    ).run(userId, otherId, now);
+    d.prepare(
+      `INSERT INTO friends (user_id, friend_id, status, created_at) VALUES (?, ?, 'accepted', ?)
+       ON CONFLICT(user_id, friend_id) DO UPDATE SET status = 'accepted'`,
+    ).run(otherId, userId, now);
+    return 'accepted';
+  }
+  d.prepare(
+    `INSERT INTO friends (user_id, friend_id, status, created_at) VALUES (?, ?, 'pending', ?)
+     ON CONFLICT(user_id, friend_id) DO NOTHING`,
+  ).run(userId, otherId, now);
+  return 'pending';
+}
+
+export function removeFriend(userId: string, otherId: string): void {
+  const d = database();
+  d.prepare('DELETE FROM friends WHERE user_id = ? AND friend_id = ?').run(userId, otherId);
+  d.prepare('DELETE FROM friends WHERE user_id = ? AND friend_id = ?').run(otherId, userId);
+}
+
+/** Accepted friends plus any requests still waiting on us. */
+export function listFriends(userId: string): FriendRow[] {
+  return database()
+    .prepare(
+      `SELECT u.id, u.display_name, u.avatar, u.rating, u.last_seen,
+              f.status, 0 AS incoming
+         FROM friends f
+         JOIN users u ON u.id = f.friend_id
+        WHERE f.user_id = ? AND f.status IN ('pending', 'accepted')
+        UNION
+       SELECT u.id, u.display_name, u.avatar, u.rating, u.last_seen,
+              'pending' AS status, 1 AS incoming
+         FROM friends f
+         JOIN users u ON u.id = f.user_id
+        WHERE f.friend_id = ? AND f.status = 'pending'
+          AND NOT EXISTS (
+            SELECT 1 FROM friends mine
+             WHERE mine.user_id = ? AND mine.friend_id = f.user_id
+          )
+        ORDER BY status, display_name COLLATE NOCASE`,
+    )
+    .all(userId, userId, userId) as unknown as FriendRow[];
 }
 
 export function counts(): { users: number; matches: number } {

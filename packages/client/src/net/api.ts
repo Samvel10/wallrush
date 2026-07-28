@@ -37,6 +37,18 @@ export interface HistoryItem {
   players: { seat: number; bot: string | null; userId: string | null; name: string }[];
 }
 
+export interface Friend {
+  id: string;
+  name: string;
+  avatar: string;
+  rating: number;
+  status: 'pending' | 'accepted';
+  /** True when they asked us, so the list can offer an Accept button. */
+  incoming: boolean;
+  online: boolean;
+  lastSeen: number;
+}
+
 export interface LeaderboardRow {
   rank: number;
   id: string;
@@ -165,6 +177,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+
+  friends: () => request<{ friends: Friend[] }>('/api/friends'),
+
+  addFriend: (id: string) =>
+    request<{ status: 'pending' | 'accepted' }>(`/api/friends/${id}`, { method: 'POST' }),
+
+  removeFriend: (id: string) =>
+    request<{ status: null }>(`/api/friends/${id}`, { method: 'DELETE' }),
 
   match: (id: string) =>
     request<{

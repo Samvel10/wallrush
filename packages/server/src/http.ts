@@ -36,7 +36,12 @@ import { config } from './config.js';
 import {
   applyMatchResult,
   counts,
+  friendState,
   getUserById,
+  havePlayedTogether,
+  listFriends,
+  removeFriend,
+  requestFriend,
   leaderboard,
   matchById,
   matchHistory,
@@ -440,6 +445,72 @@ async function handleApi(
       return;
     }
     sendJson(res, 200, { id, result }, origin);
+    return;
+  }
+
+  // ----------------------------------------------------------------- friends
+  if (path === '/api/friends' && method === 'GET') {
+    const user = userFromToken(bearer(req));
+    if (!user) {
+      sendJson(res, 401, { error: 'unauthorized' }, origin);
+      return;
+    }
+    sendJson(
+      res,
+      200,
+      {
+        friends: listFriends(user.id).map((f) => ({
+          id: f.id,
+          name: f.display_name,
+          avatar: f.avatar,
+          rating: f.rating,
+          status: f.status,
+          incoming: f.incoming === 1,
+          online: hub.isOnline(f.id),
+          lastSeen: f.last_seen,
+        })),
+      },
+      origin,
+    );
+    return;
+  }
+
+  const friendMatch = /^\/api\/friends\/([\w-]{6,64})$/.exec(path);
+  if (friendMatch && (method === 'POST' || method === 'DELETE')) {
+    const user = userFromToken(bearer(req));
+    if (!user) {
+      sendJson(res, 401, { error: 'unauthorized' }, origin);
+      return;
+    }
+    const otherId = friendMatch[1];
+    if (otherId === user.id) {
+      sendJson(res, 400, { error: 'self' }, origin);
+      return;
+    }
+    const other = getUserById(otherId);
+    if (!other || other.guest === 1) {
+      sendJson(res, 404, { error: 'no-such-player' }, origin);
+      return;
+    }
+    if (method === 'DELETE') {
+      removeFriend(user.id, otherId);
+      sendJson(res, 200, { status: null }, origin);
+      return;
+    }
+    // Friend requests are only possible between people who have actually
+    // played each other. That is the whole social graph this game needs, and
+    // it removes any way to pester a stranger you found in the leaderboard.
+    if (user.guest === 1) {
+      sendJson(res, 403, { error: 'guest' }, origin);
+      return;
+    }
+    if (friendState(user.id, otherId) === null && !havePlayedTogether(user.id, otherId)) {
+      sendJson(res, 403, { error: 'not-played' }, origin);
+      return;
+    }
+    const status = requestFriend(user.id, otherId);
+    if (status === 'accepted') hub.notifyFriends(user.id, otherId);
+    sendJson(res, 200, { status }, origin);
     return;
   }
 

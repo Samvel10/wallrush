@@ -53,6 +53,21 @@ export class Hub {
     return this.online.size;
   }
 
+  isOnline(userId: string): boolean {
+    return this.online.has(userId);
+  }
+
+  /** Lets the server push a friends-list refresh to whoever is affected. */
+  private friendListener: ((userIds: string[]) => void) | null = null;
+
+  onFriendsChanged(listener: (userIds: string[]) => void): void {
+    this.friendListener = listener;
+  }
+
+  notifyFriends(...userIds: string[]): void {
+    this.friendListener?.(userIds);
+  }
+
   get inGameCount(): number {
     let n = 0;
     for (const room of this.rooms.values()) {

@@ -11,7 +11,16 @@ import type { ClientMessage, ServerMessage } from '@wallrush/shared';
 
 import { API_BASE, storedToken } from './api.js';
 
-export type ConnectionState = 'idle' | 'connecting' | 'open' | 'closed';
+export type ConnectionState =
+  | 'idle'
+  | 'connecting'
+  | 'open'
+  | 'closed'
+  /** The server handed this identity to another tab or device. */
+  | 'replaced';
+
+/** Close code the server uses when a newer connection takes over an identity. */
+const CLOSE_REPLACED = 4001;
 
 type Listener = (msg: ServerMessage) => void;
 type StateListener = (state: ConnectionState, latencyMs: number) => void;
@@ -40,8 +49,16 @@ export class Connection {
   state: ConnectionState = 'idle';
   latencyMs = 0;
 
-  connect(): void {
+  /** Reconnects after being replaced, taking the identity back on purpose. */
+  reclaim(): void {
+    this.retries = 0;
+    this.connect(true);
+  }
+
+  connect(force = false): void {
     if (this.socket && (this.socket.readyState === 0 || this.socket.readyState === 1)) return;
+    // Do not fight another tab for the same account unless asked to.
+    if (this.state === 'replaced' && !force) return;
     this.closedByUs = false;
     this.setState('connecting');
     let socket: WebSocket;
@@ -53,7 +70,15 @@ export class Connection {
     }
     this.socket = socket;
 
+    // Every handler below belongs to *this* socket. A superseded socket can
+    // still deliver a late close — the browser fires it whenever it gets
+    // round to it — and without this guard that stale event would wipe the
+    // state of the healthy connection that replaced it, leaving the app
+    // permanently "connecting" while a perfectly good socket is open.
+    const isCurrent = () => this.socket === socket;
+
     socket.onopen = () => {
+      if (!isCurrent()) return;
       this.retries = 0;
       this.setState('open');
       const pending = this.queue;
@@ -63,6 +88,7 @@ export class Connection {
     };
 
     socket.onmessage = (event) => {
+      if (!isCurrent()) return;
       let msg: ServerMessage;
       try {
         msg = JSON.parse(String(event.data)) as ServerMessage;
@@ -77,11 +103,19 @@ export class Connection {
       for (const listener of this.listeners) listener(msg);
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
+      if (!isCurrent()) return;
       this.stopPinging();
       this.socket = null;
       if (this.closedByUs) {
         this.setState('closed');
+        return;
+      }
+      if (event.code === CLOSE_REPLACED) {
+        // Another tab (or device) picked up this account. Reconnecting here
+        // would just kick that one off, which would reconnect and kick this
+        // one off, forever. Stop, and let the player choose which tab wins.
+        this.setState('replaced');
         return;
       }
       this.setState('connecting');
@@ -164,12 +198,12 @@ export const connection = new Connection();
 // A phone that wakes from sleep should resume immediately rather than waiting
 // for the next backoff tick.
 if (typeof document !== 'undefined') {
+  const wake = () => {
+    if (connection.state === 'closed' || connection.state === 'replaced') return;
+    connection.connect();
+  };
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && connection.state !== 'closed') {
-      connection.connect();
-    }
+    if (document.visibilityState === 'visible') wake();
   });
-  window.addEventListener('online', () => {
-    if (connection.state !== 'closed') connection.connect();
-  });
+  window.addEventListener('online', wake);
 }
