@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 
+import { InstallPrompt } from '../components/InstallPrompt.js';
 import { useI18n } from '../i18n/index.js';
 import { api } from '../net/api.js';
 import { connection } from '../net/socket.js';
@@ -126,6 +127,8 @@ export function Home(): ReactNode {
           onClick={() => go({ name: 'rules' })}
         />
       </div>
+
+      <InstallPrompt />
 
       {profile && profile.guest ? (
         <div className="card card-tight stack-sm">
