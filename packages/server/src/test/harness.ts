@@ -135,12 +135,20 @@ export class TestClient {
   }
 }
 
-export async function postJson<T>(url: string, path: string, body: unknown, token?: string): Promise<{ status: number; body: T }> {
+export async function postJson<T>(
+  url: string,
+  path: string,
+  body: unknown,
+  token?: string,
+  /** Pretend to arrive through the proxy from this address. */
+  from?: string,
+): Promise<{ status: number; body: T }> {
   const res = await fetch(url + path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(from ? { 'X-Forwarded-For': from } : {}),
     },
     body: JSON.stringify(body),
   });

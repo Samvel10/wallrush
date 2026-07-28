@@ -162,6 +162,67 @@ function profilePayload(user: UserRow) {
   };
 }
 
+/**
+ * A per-address budget for the endpoints that cost something.
+ *
+ * The realtime side has always been rate limited; the HTTP side was not,
+ * which was fine while this ran on a laptop and is not now that it is a
+ * public address. The three that matter: registration writes a row, login
+ * runs scrypt (deliberately slow — which makes it a way to burn the box's
+ * CPU as well as to guess a password), and a local-match submission replays
+ * a whole game through the engine.
+ *
+ * Deliberately in memory and deliberately simple. It is a speed bump for
+ * scripts, not a defence against a distributed attack, and a restart clearing
+ * it is not worth a table for.
+ */
+const WRITE_WINDOW_MS = 60_000;
+const writeHits = new Map<string, { count: number; since: number }>();
+
+/**
+ * Who is asking, or null for "do not charge this one".
+ *
+ * In production apache is the only thing that can reach the port, so the real
+ * caller is in the header it sets and the socket is always loopback. A
+ * request that arrives on loopback *without* that header therefore cannot be
+ * a visitor — it is the operator on the box, or the test suite — and there is
+ * nothing to protect against there.
+ */
+function callerAddress(req: IncomingMessage): string | null {
+  const forwarded = req.headers['x-forwarded-for'];
+  const first = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0];
+  if (first) return first.trim();
+  const socket = req.socket.remoteAddress ?? '';
+  if (socket === '127.0.0.1' || socket === '::1' || socket === '::ffff:127.0.0.1') return null;
+  return socket || 'unknown';
+}
+
+function withinWriteBudget(req: IncomingMessage): boolean {
+  const key = callerAddress(req);
+  if (key === null) return true;
+  const now = Date.now();
+  const seen = writeHits.get(key);
+  if (!seen || now - seen.since > WRITE_WINDOW_MS) {
+    writeHits.set(key, { count: 1, since: now });
+    // Opportunistic sweep: the map only grows while traffic does.
+    if (writeHits.size > 4096) {
+      for (const [k, v] of writeHits) {
+        if (now - v.since > WRITE_WINDOW_MS) writeHits.delete(k);
+      }
+    }
+    return true;
+  }
+  seen.count += 1;
+  return seen.count <= config.writeLimit;
+}
+
+/** Endpoints that write, hash or replay — the ones worth protecting. */
+const COSTLY = new Set([
+  '/api/auth/register',
+  '/api/auth/login',
+  '/api/matches/local',
+]);
+
 export function createHttpHandler(hub: Hub) {
   const staticRoot = config.staticDir ? resolve(config.staticDir) : '';
 
@@ -177,6 +238,11 @@ export function createHttpHandler(hub: Hub) {
     }
 
     if (path.startsWith('/api/')) {
+      if (req.method === 'POST' && COSTLY.has(path) && !withinWriteBudget(req)) {
+        res.setHeader('Retry-After', '60');
+        sendJson(res, 429, { error: 'rate-limited' }, origin);
+        return;
+      }
       try {
         await handleApi(req, res, url, hub, origin);
       } catch (err) {

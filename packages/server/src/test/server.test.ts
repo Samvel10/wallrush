@@ -397,6 +397,34 @@ test('both racers start on the same edge and share one finish', async () => {
   b.close();
 });
 
+test('the endpoints that cost something are rate limited', async () => {
+  // Twenty in a minute is the budget; the twenty-first should be refused
+  // rather than served, and the refusal should say when to come back.
+  let limited = 0;
+  let served = 0;
+  // A visitor arrives through the proxy, which names them. Requests that
+  // reach the port directly on loopback are the operator's and are not
+  // charged, which is what keeps the rest of this suite unthrottled.
+  for (let i = 0; i < 26; i++) {
+    const r = await postJson(
+      server.url,
+      '/api/auth/login',
+      { username: `nobody_${i}`, password: 'wrong-password-here' },
+      undefined,
+      '203.0.113.7',
+    );
+    if (r.status === 429) limited += 1;
+    else served += 1;
+  }
+  assert.ok(served >= 15, `expected the budget to be spent, not refused outright (${served})`);
+  assert.ok(limited >= 3, `expected the surplus to be refused (${limited})`);
+
+  // A read is never charged: the lobby must not lock up because somebody
+  // fumbled their password.
+  const health = await getJson(server.url, '/api/health');
+  assert.equal(health.status, 200);
+});
+
 test('a bot fills a seat and plays on its own', async () => {
   const host = await TestClient.connect(server.url);
   await host.waitFor('welcome');

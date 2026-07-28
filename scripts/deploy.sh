@@ -21,13 +21,20 @@ SSH=(ssh -i "$KEY" -o ConnectTimeout=25 -o ServerAliveInterval=10)
 
 # The link to this box drops often enough that a single timeout is not news.
 # Every remote step is idempotent, so retrying is safe.
+#
+# The backoff grows because the failure mode is not always a flaky packet: a
+# burst of reconnects can get port 22 shut in your face for a while, and
+# retrying every fifteen seconds is how you stay shut out. Waits run
+# 20s, 40s, 80s, 160s, 320s — about ten minutes in total, which is long enough
+# for a temporary ban to lift.
 retry() {
-  local n=0
+  local n=0 wait=20
   until "$@"; do
     n=$((n + 1))
     [ "$n" -ge 6 ] && { echo "   giving up after $n attempts: $*" >&2; return 1; }
-    echo "   retry $n…"
-    sleep 15
+    echo "   retry $n in ${wait}s…"
+    sleep "$wait"
+    wait=$((wait * 2))
   done
 }
 

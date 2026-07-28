@@ -41,6 +41,8 @@ export const config = {
   maxRooms: envInt('WALLRUSH_MAX_ROOMS', 4000),
   /** Messages per second allowed per connection before throttling. */
   rateLimit: envInt('WALLRUSH_RATE_LIMIT', 25),
+  /** Writes per minute per address on the endpoints that cost real work. */
+  writeLimit: envInt('WALLRUSH_WRITE_LIMIT', 20),
   trustProxy: env('WALLRUSH_TRUST_PROXY', '1') === '1',
   /** Logs every inbound and outbound realtime message. Development only. */
   debug: env('WALLRUSH_DEBUG', '0') === '1',
