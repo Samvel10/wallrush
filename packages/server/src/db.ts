@@ -148,11 +148,12 @@ function migrate(d: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS idx_friends_friend ON friends(friend_id, status);
 
-    CREATE TABLE IF NOT EXISTS stats_daily (
-      day        TEXT PRIMARY KEY,
-      games      INTEGER NOT NULL DEFAULT 0,
-      players    INTEGER NOT NULL DEFAULT 0
-    );
+    -- stats_daily used to live here and was never written to. Everything it
+    -- promised is already in matches and match_players with a timestamp, so a
+    -- counter table could only ever drift out of agreement with them. Dropped
+    -- rather than left as a table that says something the code does not do.
+    -- (No backticks in here: this is inside a template literal.)
+    DROP TABLE IF EXISTS stats_daily;
   `);
 }
 
@@ -494,6 +495,30 @@ export function listFriends(userId: string): FriendRow[] {
         ORDER BY status, display_name COLLATE NOCASE`,
     )
     .all(userId, userId, userId) as unknown as FriendRow[];
+}
+
+/**
+ * Recent activity, derived rather than counted into a table.
+ *
+ * `matches` already carries `finished_at` and `match_players` already carries
+ * who was there, so a running total kept alongside them could only drift out
+ * of agreement with the thing it summarises.
+ */
+export function activity(): { gamesToday: number; gamesWeek: number; playersToday: number } {
+  const d = database();
+  const dayAgo = nowMs() - 24 * 60 * 60 * 1000;
+  const weekAgo = nowMs() - 7 * 24 * 60 * 60 * 1000;
+  const today = d.prepare('SELECT COUNT(*) AS n FROM matches WHERE finished_at >= ?').get(dayAgo) as { n: number };
+  const week = d.prepare('SELECT COUNT(*) AS n FROM matches WHERE finished_at >= ?').get(weekAgo) as { n: number };
+  const players = d
+    .prepare(
+      `SELECT COUNT(DISTINCT mp.user_id) AS n
+         FROM match_players mp
+         JOIN matches m ON m.id = mp.match_id
+        WHERE m.finished_at >= ? AND mp.user_id IS NOT NULL`,
+    )
+    .get(dayAgo) as { n: number };
+  return { gamesToday: today.n, gamesWeek: week.n, playersToday: players.n };
 }
 
 export function counts(): { users: number; matches: number } {

@@ -542,6 +542,21 @@ test('a race played offline is recorded, not silently dropped', async () => {
   assert.equal(history.body.matches.length, 1, 'the race shows up in history');
 });
 
+test('health reports activity derived from the games themselves', async () => {
+  const { status, body } = await getJson<{
+    gamesToday: number;
+    gamesWeek: number;
+    playersToday: number;
+  }>(server.url, '/api/health');
+  assert.equal(status, 200);
+  for (const key of ['gamesToday', 'gamesWeek', 'playersToday'] as const) {
+    assert.equal(typeof body[key], 'number', `${key} should be a number`);
+    assert.ok(body[key] >= 0);
+  }
+  // Whatever happened today also happened this week.
+  assert.ok(body.gamesWeek >= body.gamesToday);
+});
+
 test('a bot fills a seat and plays on its own', async () => {
   const host = await TestClient.connect(server.url);
   await host.waitFor('welcome');

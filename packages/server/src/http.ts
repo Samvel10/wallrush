@@ -36,6 +36,7 @@ import {
 } from './auth.js';
 import { config } from './config.js';
 import {
+  activity,
   applyMatchResult,
   counts,
   friendState,
@@ -286,7 +287,7 @@ async function handleApi(
     sendJson(
       res,
       200,
-      { ok: true, uptime: Math.round(process.uptime()), ...hub.stats(), ...c },
+      { ok: true, uptime: Math.round(process.uptime()), ...hub.stats(), ...c, ...activity() },
       origin,
     );
     return;
