@@ -4,6 +4,7 @@ dist/
 *.log
 .DS_Store
 data/
+.data/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal

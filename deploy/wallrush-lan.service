@@ -1,0 +1,37 @@
+# WallRush on the local network, for testing on a phone.
+#
+# Unlike deploy/wallrush.service — which runs behind nginx as its own user and
+# listens only on loopback — this one binds every interface so another device
+# on the same Wi-Fi can reach it, and runs from the checkout as the developer's
+# own account. It is for a trusted home network, not the public internet.
+#
+#   sudo cp deploy/wallrush-lan.service /etc/systemd/system/wallrush.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now wallrush
+#   http://<your-lan-ip>:8787
+#
+# To remove it again:  sudo systemctl disable --now wallrush
+
+[Unit]
+Description=WallRush (local network)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=samo
+Group=samo
+WorkingDirectory=/var/www/html/wallrush
+# The system node is 18; `node:sqlite` needs 22 or newer, so the interpreter
+# is named outright rather than picked up from a login shell's PATH.
+ExecStart=/home/samo/.nvm/versions/node/v24.15.0/bin/node packages/server/dist/index.js
+Restart=always
+RestartSec=2
+
+Environment=NODE_ENV=production
+Environment=PORT=8787
+Environment=HOST=0.0.0.0
+Environment=WALLRUSH_DATA=/var/www/html/wallrush/.data
+Environment=WALLRUSH_STATIC=/var/www/html/wallrush/packages/client/dist
+
+[Install]
+WantedBy=multi-user.target

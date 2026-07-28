@@ -205,3 +205,29 @@ as-is. It does not need to for a long time: a table costs a few kilobytes, and
 a move is one BFS over 81 cells. If you ever outgrow a single box, the natural
 split is to shard rooms by code across processes behind a sticky-by-room proxy,
 leaving accounts and history in the shared database.
+
+
+## Փորձարկում հեռախոսից՝ նույն Wi-Fi-ի ներսում
+
+`deploy/wallrush-lan.service`-ը նույն բանն է, ինչ արտադրական unit-ը, երկու
+տարբերությամբ. կապվում է **բոլոր ինտերֆեյսներին** (`HOST=0.0.0.0`), ոչ միայն
+loopback-ին, և աշխատում է հենց այս checkout-ից՝ մշակողի հաշվի տակ։ Դա տան
+վստահելի ցանցի համար է, ոչ թե ինտերնետի։
+
+```bash
+sudo cp deploy/wallrush-lan.service /etc/systemd/system/wallrush.service
+sudo systemctl daemon-reload && sudo systemctl enable --now wallrush
+ip -4 addr show scope global | grep -oP 'inet \K[\d.]+'   # հասցեն
+```
+
+Հեռախոսում՝ `http://<հասցե>:8787`։
+
+Երկու բան, որ պետք է իմանալ.
+
+- **Node-ի ուղին unit-ում բացահայտ գրված է։** Համակարգային `node`-ը 18 է, իսկ
+  `node:sqlite`-ին պետք է 22+, ուստի PATH-ի վրա հույս դնելը լուռ կոտրում է
+  գործարկումը։
+- **Service worker-ը չի գրանցվի `http://`-ի վրա** (միայն `localhost` կամ
+  `https`)։ Խաղը լիարժեք աշխատում է, բայց հեռախոսի վրա այս հասցեով չեն լինի
+  օֆլայն ռեժիմը և «ավելացնել գլխավոր էկրանին»։ Դրանք ստուգելու համար պետք է
+  `https` կամ `localhost`։
