@@ -35,6 +35,7 @@ deep play.
 | **Works offline** | The bot runs in a Web Worker; the PWA caches the shell. |
 | **Built for phones** | Every screen is designed touch-first, from 320 px up. |
 | **Game review** | Replay any finished game and have the engine mark every inaccuracy, mistake and blunder. |
+| **Keyboard** | Arrows move, `W`/`R` place and rotate walls, `P` shows your route; replays scrub with arrows and `Space`. |
 
 ## Running it
 
