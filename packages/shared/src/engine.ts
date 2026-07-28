@@ -454,8 +454,15 @@ export class Game {
       : this.isWallLegal(move.wall, seat);
   }
 
-  /** Every legal move for the seat on turn. Pawn steps first, then walls. */
+  /**
+   * Every legal move for the seat on turn. Pawn steps first, then walls.
+   *
+   * A finished game has none. `apply` already refuses with `game-over`, but a
+   * list called "legal moves" that `apply` would reject is a trap for the next
+   * caller — the answer and the rule have to agree.
+   */
   legalMoves(seat: PlayerIndex = this.turn): Move[] {
+    if (this.isOver) return [];
     const out: Move[] = this.pawnMoves(seat).map((to) => ({ kind: MoveKind.Step, to } as Move));
     if (this.players[seat].walls > 0) {
       for (const w of this.candidateWalls()) {

@@ -403,3 +403,48 @@ test('a duel is unchanged by the race work', () => {
   assert.notEqual(g.players[0].side, g.players[1].side);
   assert.equal(isGoal(g.players[0].side, 0, 4, 9), true);
 });
+
+
+test('a finished game offers no moves at all', () => {
+  const g = new Game({ wallsPerPlayer: 0 });
+  // Walk seat 0 home; seat 1 shuffles on the spot.
+  for (let r = 7; r >= 0; r--) {
+    assert.ok(g.apply(step(r, 4)).ok, `seat 0 could not reach row ${r}`);
+    if (g.winner !== null) break;
+    const other = g.players[1].pos;
+    assert.ok(g.apply(step(other.r, other.c === 4 ? 3 : 4)).ok);
+  }
+  assert.equal(g.isOver, true);
+
+  // The list and the rule have to agree: `apply` refuses, so the list is empty.
+  assert.deepEqual(g.legalMoves(), []);
+  assert.deepEqual(g.legalMoves(1), []);
+  assert.equal(g.apply(step(1, 4)).ok, false);
+});
+
+test('a four-player game ends the moment somebody arrives', () => {
+  const g = new Game({ players: 4, wallsPerPlayer: 0 });
+  // Everyone but seat 0 marks time; seat 0 walks to the far row.
+  const idle = (seat: number) => {
+    const p = g.players[seat].pos;
+    const to = g.pawnMoves(seat)[0];
+    assert.ok(to, `seat ${seat} had nowhere to go from ${p.r},${p.c}`);
+    assert.ok(g.apply({ kind: MoveKind.Step, to }).ok);
+  };
+  for (let r = 7; r >= 0 && !g.isOver; r--) {
+    assert.ok(g.apply(step(r, 4)).ok);
+    if (g.isOver) break;
+    idle(1);
+    idle(2);
+    idle(3);
+  }
+  assert.equal(g.winner, 0);
+  assert.equal(g.ending, 'goal');
+  assert.equal(g.players[0].finished, true);
+  assert.equal(g.players[0].rank, 1);
+  // Nobody is eliminated just because somebody else got there first.
+  assert.deepEqual(
+    g.players.slice(1).map((p) => p.eliminated),
+    [false, false, false],
+  );
+});
