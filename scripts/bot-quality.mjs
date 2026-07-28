@@ -9,6 +9,7 @@
  * and counts the moves that made the bot's own position no better.
  *
  *   node scripts/bot-quality.mjs --levels easy,medium,hard --games 6
+ *   node scripts/bot-quality.mjs --mode race
  */
 
 import { BOT_PROFILES, Bot, Game, MoveKind } from '../packages/shared/dist/index.js';
@@ -22,6 +23,8 @@ const opt = (n, d) => {
 const LEVELS = opt('levels', 'novice,easy,medium,hard').split(',');
 const GAMES = Number(opt('games', 6));
 const MAX_PLY = Number(opt('maxPly', 160));
+/** The race board is a different shape; the bots have never been measured on it. */
+const MODE = opt('mode', 'duel');
 
 function judge(game, seat, move) {
   const me = game.players[seat];
@@ -38,25 +41,40 @@ function judge(game, seat, move) {
     if (after >= before && best < before) return 'idle';
     return 'ok';
   }
-  // A wall is worth playing only if it actually lengthens somebody's route.
-  const opponents = game.players.filter((p) => p.index !== seat && !p.eliminated);
-  const cost = (g) =>
-    opponents.reduce((sum, p) => sum + Math.max(0, g.distanceToGoal(p.pos.r, p.pos.c, p.side)), 0);
+  // A wall counts as wasted only when it changes *nothing on the board* — not
+  // the opponent's route and not our own.
+  //
+  // The stricter version ("it must lengthen the opponent") is wrong, and
+  // measurably so: in a race both players run the same way, so a good wall
+  // frequently costs the placer a step too, and a wall can be strong today
+  // while changing no shortest path until the pawns arrive. Judging those as
+  // mistakes made the race board look far worse than it plays.
+  const distances = (g) =>
+    g.players
+      .filter((p) => !p.eliminated)
+      .map((p) => Math.max(0, g.distanceToGoal(p.pos.r, p.pos.c, p.side)))
+      .join(',');
   const probe = Game.fromState(game.toState());
-  const was = cost(probe);
+  const was = distances(probe);
   if (!probe.apply(move).ok) return 'ok';
-  return cost(probe) > was ? 'ok' : 'wasted-wall';
+  return distances(probe) === was ? 'wasted-wall' : 'ok';
 }
 
 const rows = [];
 for (const level of LEVELS) {
   const tally = { ok: 0, backward: 0, idle: 0, 'wasted-wall': 0 };
   for (let g = 0; g < GAMES; g++) {
-    const game = new Game();
+    const game = new Game({ mode: MODE });
     // The opponent is deliberately strong and fond of walls: this is what a
     // person does when they set out to trap the bot.
-    const rival = new Bot({ ...BOT_PROFILES.expert, wallShyness: 0 }, 9, 2, 0x2545f491 + g * 7919);
-    const bot = new Bot(level, 9, 2, 0x9e3779b9 + g * 104729);
+    const rival = new Bot(
+      { ...BOT_PROFILES.expert, wallShyness: 0 },
+      game.cols,
+      2,
+      0x2545f491 + g * 7919,
+      game.rows,
+    );
+    const bot = new Bot(level, game.cols, 2, 0x9e3779b9 + g * 104729, game.rows);
     while (game.winner === null && game.ply < MAX_PLY) {
       const seat = game.turn;
       const { move } = seat === 0 ? rival.choose(game, { strict: true }) : bot.choose(game);

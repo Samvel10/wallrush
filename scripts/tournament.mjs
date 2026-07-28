@@ -32,6 +32,8 @@ const MAX_PLY = Number(opt('maxPly', 220));
  * in a quarter of the wall clock.
  */
 const SCALE = Number(opt('scale', 1));
+/** Which board the ladder is measured on. */
+const MODE = opt('mode', 'duel');
 
 const profileFor = (level) =>
   SCALE === 1
@@ -40,10 +42,10 @@ const profileFor = (level) =>
 
 /** One game. Returns 1 if `a` (seat 0) won, 0 if `b` won, 0.5 for a stalemate. */
 function play(a, b, seed) {
-  const game = new Game();
+  const game = new Game({ mode: MODE });
   const bots = [
-    new Bot(profileFor(a), 9, 2, seed),
-    new Bot(profileFor(b), 9, 2, (seed * 2654435761) >>> 0),
+    new Bot(profileFor(a), game.cols, 2, seed, game.rows),
+    new Bot(profileFor(b), game.cols, 2, (seed * 2654435761) >>> 0, game.rows),
   ];
   while (game.winner === null && game.ply < MAX_PLY) {
     const { move } = bots[game.turn].choose(game);
