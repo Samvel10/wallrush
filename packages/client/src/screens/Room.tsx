@@ -273,6 +273,11 @@ export function Room({ code }: { code: string }): ReactNode {
           seats={seats}
           mySeat={online.mySeat}
           controllingSeat={controllingSeat}
+          // A bot seat thinks for up to three seconds; without this the board
+          // just sits there looking broken.
+          thinking={
+            !game.isOver && room.seats[game.turn]?.bot != null
+          }
           clockRunning
           lastMove={online.lastMove}
           floatingEmote={floatingEmote}
