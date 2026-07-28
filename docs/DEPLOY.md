@@ -231,3 +231,60 @@ ip -4 addr show scope global | grep -oP 'inet \K[\d.]+'   # հասցեն
   `https`)։ Խաղը լիարժեք աշխատում է, բայց հեռախոսի վրա այս հասցեով չեն լինի
   օֆլայն ռեժիմը և «ավելացնել գլխավոր էկրանին»։ Դրանք ստուգելու համար պետք է
   `https` կամ `localhost`։
+
+
+## Կենդանի տարբերակը՝ https://wallrush.duckdns.org
+
+Hetzner-ի մեքենա (`root@5.223.92.226`), որի վրա ուրիշ նախագծեր էլ են աշխատում։
+WallRush-ը այնտեղ **միայն գործարկվում է** — շինումը տեղում է, սերվերին գնում է
+միայն արդյունքը (343 KB)։ Դա դիտավորյալ է. մեքենան 7.6 GiB հիշողություն ունի, և
+tsc/vite-ը այնտեղ վազեցնելը ուրիշների հաշվին կլիներ։
+
+```bash
+# տեղում
+npm run build
+tar czf /tmp/wallrush.tgz   package.json package-lock.json   packages/shared/package.json packages/shared/dist   packages/server/package.json packages/server/dist   packages/client/package.json packages/client/dist
+
+# սերվերում
+scp /tmp/wallrush.tgz root@SERVER:/tmp/
+ssh root@SERVER 'tar xzf /tmp/wallrush.tgz -C /opt/wallrush &&
+  cd /opt/wallrush && PATH=/opt/node22/bin:$PATH npm install --omit=dev &&
+  systemctl restart wallrush'
+```
+
+Հեռացրու `packages/server/dist/test`-ը փաթեթից — թեստերը արտադրության մեջ պետք չեն։
+
+### Node-ի տարբերակը
+
+Բաշխման `node`-ը **20.20.2** է, իսկ `node:sqlite`-ին պետք է **22+**։ nodesource
+տեղադրելը կփոխարիներ այն node-ը, որով ուրիշ նախագծեր են աշխատում, ուստի 22.14-ը
+դրված է առանձին՝ **`/opt/node22`**, և միայն `wallrush.service`-ն է այն անվանում.
+
+```
+ExecStart=/opt/node22/bin/node packages/server/dist/index.js
+```
+
+### Apache (այս մեքենան nginx չունի)
+
+`mod_proxy_wstunnel`-ը արդեն միացված էր։ **Կարևորը հերթականությունն է** —
+WebSocket-ի rewrite-ը պետք է լինի `ProxyPass /`-ից **առաջ**, այլապես upgrade-ը
+գնում է որպես սովորական HTTP հարցում և խաղը երբեք չի միանում.
+
+```apache
+RewriteEngine on
+RewriteCond %{HTTP:Upgrade} =websocket [NC]
+RewriteRule ^/ws(.*) ws://127.0.0.1:8787/ws$1 [P,L]
+
+ProxyPass / http://127.0.0.1:8787/
+ProxyPassReverse / http://127.0.0.1:8787/
+```
+
+HTTPS-ը՝ `certbot --apache -d wallrush.duckdns.org --redirect`։ TLS vhost-ում
+ավելացված են `X-Forwarded-Proto`, `X-Forwarded-Port` և HSTS։
+
+Ստուգելու ամենաարագ ձևը, որ իրական ժամանակը աշխատում է՝ upgrade-ի կոդը.
+
+```bash
+curl -sk -o /dev/null -w '%{http_code}\n' https://wallrush.duckdns.org/api/health   # 200
+# WebSocket՝ 101 և առաջին կադրը (welcome հաղորդագրությունը)
+```

@@ -1,5 +1,7 @@
 # WallRush
 
+**Live: https://wallrush.duckdns.org**
+
 **Փակի՛ր նրա ճանապարհը** · *Перекрой ему путь* · *Block their way*
 
 [![CI](https://github.com/Samvel10/wallrush/actions/workflows/ci.yml/badge.svg)](https://github.com/Samvel10/wallrush/actions/workflows/ci.yml)
