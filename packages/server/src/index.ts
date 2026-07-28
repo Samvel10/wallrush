@@ -574,6 +574,11 @@ export function closeRealtime(): void {
 
 function shutdown(signal: string): void {
   process.stdout.write(`\nReceived ${signal}, shutting down…\n`);
+  // Say goodbye before hanging up: end live games so the players get a result
+  // instead of a table that quietly stops existing. Deploys are frequent and
+  // this is what they feel like from the other side.
+  const ended = hub.abortLiveGames();
+  if (ended > 0) process.stdout.write(`  ended ${ended} game(s) in progress\n`);
   closeRealtime();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();

@@ -12,9 +12,13 @@ import WebSocket from 'ws';
 
 import type { ClientMessage, ServerMessage } from '@wallrush/shared';
 
+import type { Hub } from '../hub.js';
+
 export interface TestServer {
   port: number;
   url: string;
+  /** The live hub, for the few tests that need to act like the process is ending. */
+  hub: Hub;
   close(): Promise<void>;
 }
 
@@ -46,6 +50,7 @@ export async function startServer(): Promise<TestServer> {
   return {
     port,
     url: `http://127.0.0.1:${port}`,
+    hub: mod.hub,
     async close() {
       // A failing test usually leaves its sockets open, and `close` waits for
       // every connection to end — so without this the suite hangs instead of

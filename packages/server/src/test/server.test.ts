@@ -557,6 +557,51 @@ test('health reports activity derived from the games themselves', async () => {
   assert.ok(body.gamesWeek >= body.gamesToday);
 });
 
+test('a shutdown ends live games instead of dropping them', async () => {
+  const a = await TestClient.connect(server.url);
+  const b = await TestClient.connect(server.url);
+  await a.waitFor('welcome');
+  await b.waitFor('welcome');
+
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { size: 5, clockMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+  });
+  const created = await a.waitFor('room');
+  b.send({ t: 'room.join', code: created.room.code });
+  await b.waitFor('room', (m) => m.room.seats[1].user !== null);
+  a.send({ t: 'room.ready', ready: true });
+  b.send({ t: 'room.ready', ready: true });
+  await a.waitFor('game.start');
+  await b.waitFor('game.start');
+
+  // What a deploy does to whoever is playing at the time. Earlier tests leave
+  // their own tables behind, so this ends ours among others — the count is not
+  // the point, being told is.
+  const ended = server.hub.abortLiveGames();
+  assert.ok(ended >= 1, 'at least the game we just started should end');
+
+  for (const [who, client] of [
+    ['a', a],
+    ['b', b],
+  ] as const) {
+    const over = await client.waitFor('game.over');
+    assert.equal(over.ending, 'abort', `${who} should be told the game was aborted`);
+    assert.equal(over.winner, null, 'nobody wins a game the server ended');
+    // The guarantee that matters is not the shape of the array but that
+    // nobody's number moved because the server was restarted.
+    for (const change of over.ratings ?? []) {
+      assert.equal(change.delta, 0, 'a deploy must not cost anyone rating');
+      assert.equal(change.before, change.after);
+    }
+  }
+
+  a.close();
+  b.close();
+});
+
 test('a bot fills a seat and plays on its own', async () => {
   const host = await TestClient.connect(server.url);
   await host.waitFor('welcome');

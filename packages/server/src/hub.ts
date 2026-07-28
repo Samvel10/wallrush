@@ -6,7 +6,7 @@
  * public rooms, so a code stays a private invitation.
  */
 
-import type { GameConfig, RoomInfo, ServerMessage } from '@wallrush/shared';
+import type { GameConfig, GameEnding, RoomInfo, ServerMessage } from '@wallrush/shared';
 
 import { config } from './config.js';
 import { Room, normaliseConfig, type Participant, type RoomEvent } from './room.js';
@@ -307,6 +307,25 @@ export class Hub {
     }
     this.pumpQueue();
     this.flushLobby();
+  }
+
+  /**
+   * End every game in progress, telling the players why.
+   *
+   * Rooms live in memory, so a restart takes them with it. Left alone that
+   * looks like the game evaporating: no result, no record, nothing to read.
+   * Aborting first means both sides get a `game.over` they can see and the
+   * game lands in history like any other — and an aborted game is unrated, so
+   * nobody's number moves because of a deploy.
+   */
+  abortLiveGames(reason: GameEnding = 'abort'): number {
+    let ended = 0;
+    for (const room of this.rooms.values()) {
+      if (room.status !== 'playing') continue;
+      room.abort(reason);
+      ended += 1;
+    }
+    return ended;
   }
 
   stats(): { rooms: number; playing: number; queue: number; online: number } {
