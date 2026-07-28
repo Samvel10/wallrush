@@ -24,6 +24,14 @@ import {
 const INF = 1_000_000;
 const WIN = 100_000;
 
+/**
+ * How close two root moves have to be before presentation wins.
+ *
+ * A quarter of a step: far too small to change which side is winning, big
+ * enough to stop the bot shuffling when walking forward was just as good.
+ */
+const TIE_MARGIN = 28;
+
 /** Ceiling for a reported move loss: about ten steps of race advantage. */
 const MAX_REPORTED_LOSS = 1_100;
 
@@ -76,11 +84,15 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
   },
   easy: {
     level: 'easy',
-    depth: 2,
+    // Two plies could not see one move ahead of its own nose: half of this
+    // level's aimless-looking moves came from the depth alone.
+    depth: 3,
     timeMs: 150,
     rootWalls: 10,
     innerWalls: 3,
-    blunder: 0.3,
+    // The extra ply made this level noticeably stronger, so the hand gets
+    // shakier to keep it where it belongs on the ladder: weak, not stupid.
+    blunder: 0.36,
     blunderSpread: 4,
     blunderMargin: 100,
     wallShyness: 0.45,
@@ -664,12 +676,38 @@ export class Bot {
         if (best < WIN - 1000) {
           const floor = best - profile.blunderMargin;
           const spread = Math.min(profile.blunderSpread, ranking.length - 1);
-          let last = 0;
+          const options: number[] = [];
           for (let i = 1; i <= spread; i++) {
             if (ranking[i].score < floor || ranking[i].score <= -WIN + 1000) break;
-            last = i;
+            // A weaker player picks a worse *plan*. They do not play a move
+            // that achieves nothing at all — walking away from the goal with a
+            // step towards it available, or spending a wall that lengthens
+            // nobody's route. Those read as broken, not beatable.
+            if (this.isPointless(g, me, ranking[i].move)) continue;
+            options.push(i);
           }
-          if (last > 0) chosenIndex = 1 + Math.floor(this.random() * last);
+          if (options.length > 0) {
+            chosenIndex = options[Math.floor(this.random() * options.length)];
+          }
+        }
+      }
+    }
+
+    // Near-ties go to the move that reads as purposeful. The search is often
+    // indifferent between stepping forward and shuffling sideways; a person
+    // watching is not, and "the bot wandered" is the complaint that follows.
+    //
+    // Steps only. Whether a *wall* achieves anything is not something this
+    // cheap test can judge — a wall that changes no distance today can be the
+    // strongest move on the board — and applying it there measurably cost the
+    // deeper levels games.
+    if (chosenIndex === 0 && ranking.length > 1 && this.isAimlessStep(g, me, ranking[0].move)) {
+      const floor = ranking[0].score - TIE_MARGIN;
+      for (let i = 1; i < ranking.length; i++) {
+        if (ranking[i].score < floor) break;
+        if (!this.isAimlessStep(g, me, ranking[i].move)) {
+          chosenIndex = i;
+          break;
         }
       }
     }
@@ -683,6 +721,48 @@ export class Bot {
       ms: Date.now() - started,
       pv: chosenIndex === 0 ? bestPv : [chosen.move],
     };
+  }
+
+  /**
+   * A move that cannot be justified on the board, whatever the search score.
+   *
+   * Used only to keep deliberate mistakes believable: the search is free to
+   * play these if they really are best, but a bot that is *trying* to be worse
+   * should not reach for them.
+   */
+  private isAimlessStep(g: Game, me: PlayerIndex, move: Move): boolean {
+    if (move.kind !== MoveKind.Step) return false;
+    const player = g.players[me];
+    const now = g.distanceToGoal(player.pos.r, player.pos.c, player.side);
+    const after = g.distanceToGoal(move.to.r, move.to.c, player.side);
+    if (after < now) return false;
+    // Standing still or retreating is only aimless when there was a way
+    // forward to take instead.
+    for (const to of g.pawnMoves(me)) {
+      const d = g.distanceToGoal(to.r, to.c, player.side);
+      if (d >= 0 && d < now) return true;
+    }
+    return false;
+  }
+
+  private isPointless(g: Game, me: PlayerIndex, move: Move): boolean {
+    if (move.kind === MoveKind.Step) return this.isAimlessStep(g, me, move);
+    // A wall that lengthens nobody's route is a wall thrown away.
+    const before = this.rivalDistance(g, me);
+    const undo = g.makeForSearch(move);
+    const after = this.rivalDistance(g, me);
+    g.unmakeForSearch(undo);
+    return after <= before;
+  }
+
+  private rivalDistance(g: Game, me: PlayerIndex): number {
+    let total = 0;
+    for (const p of g.players) {
+      if (p.index === me || p.eliminated || p.finished) continue;
+      const d = g.distanceToGoal(p.pos.r, p.pos.c, p.side);
+      if (d > 0) total += d;
+    }
+    return total;
   }
 
   private rootCandidates(g: Game, me: PlayerIndex, skipWalls: boolean): Move[] {
