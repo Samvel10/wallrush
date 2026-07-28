@@ -612,7 +612,9 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   display: grid;
-  grid-template-columns: 2.2rem 1fr 1fr;
+  /* One column per player: pairing moves two-by-two in a four-player game
+     puts unrelated players on the same row and makes the numbering lie. */
+  grid-template-columns: 2.2rem repeat(var(--log-cols, 2), 1fr);
   gap: 2px var(--space-2);
   align-content: start;
 }
@@ -627,6 +629,10 @@
 }
 .move-log-move:hover {
   background: var(--surface-hover);
+}
+/* With more than two players the name alone does not say who moved. */
+.move-log-move.has-seat {
+  border-inline-start: 3px solid var(--seat-color, transparent);
 }
 .move-log-move.is-current {
   background: var(--accent-soft);

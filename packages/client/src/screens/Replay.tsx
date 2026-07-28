@@ -20,6 +20,7 @@ import {
 } from '@wallrush/shared';
 
 import { Board } from '../components/Board.js';
+import { seatColorVar } from '../components/geometry.js';
 import { BackButton, formatRelative, useToast } from '../components/ui.js';
 import { useBotWorker } from '../hooks/useBotWorker.js';
 import { useI18n } from '../i18n/index.js';
@@ -74,6 +75,7 @@ export function Replay({ id }: { id: string }): ReactNode {
     () => (match ? parseTranscript(match.transcript, match.config.size) : []),
     [match],
   );
+  const seatCount = match?.config.players ?? 2;
 
   // Rebuild the position from scratch at the requested ply. Replaying up to a
   // hundred moves is microseconds, so there is nothing to cache.
@@ -289,11 +291,15 @@ export function Replay({ id }: { id: string }): ReactNode {
             <div className="uppercase" style={{ marginBottom: 8 }}>
               {t.game.moveList}
             </div>
-            <div className="move-log">
-              {Array.from({ length: Math.ceil(moves.length / 2) }, (_, row) => (
+            <div
+              className="move-log"
+              style={{ '--log-cols': seatCount } as React.CSSProperties}
+            >
+              {Array.from({ length: Math.ceil(moves.length / seatCount) }, (_, row) => (
                 <ReplayRow
                   key={row}
                   row={row}
+                  seats={seatCount}
                   moves={moves}
                   size={match.config.size}
                   ply={ply}
@@ -416,6 +422,7 @@ const QUALITY_COLOR: Record<MoveQuality, string> = {
 
 function ReplayRow({
   row,
+  seats,
   moves,
   size,
   ply,
@@ -423,21 +430,26 @@ function ReplayRow({
   onSelect,
 }: {
   row: number;
+  seats: number;
   moves: ReturnType<typeof parseTranscript>;
   size: number;
   ply: number;
   review: (MoveReview | null)[];
   onSelect(ply: number): void;
 }): ReactNode {
-  const cell = (index: number): ReactNode => {
+  const cell = (index: number, seat: number): ReactNode => {
     const move = moves[index];
     if (!move) return null;
     const r = review[index];
     const mark = r ? QUALITY_MARK[r.quality] : '';
     return (
       <button
+        key={seat}
         type="button"
-        className={`move-log-move${ply === index + 1 ? ' is-current' : ''}`}
+        className={`move-log-move${seats > 2 ? ' has-seat' : ''}${
+          ply === index + 1 ? ' is-current' : ''
+        }`}
+        style={{ '--seat-color': seatColorVar(seat) } as React.CSSProperties}
         onClick={() => onSelect(index + 1)}
         title={r ? `${r.quality} · ${(r.loss / 110).toFixed(1)}` : undefined}
       >
@@ -453,8 +465,9 @@ function ReplayRow({
   return (
     <>
       <span className="move-log-num">{row + 1}.</span>
-      {cell(row * 2) ?? <span />}
-      {cell(row * 2 + 1) ?? <span />}
+      {Array.from({ length: seats }, (_, seat) => cell(row * seats + seat, seat) ?? (
+        <span key={seat} />
+      ))}
     </>
   );
 }

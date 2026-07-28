@@ -21,6 +21,7 @@ import { useI18n } from '../i18n/index.js';
 import { useSettings } from '../state/settings.js';
 import { sounds, vibrate } from '../state/sound.js';
 import { Board } from './Board.js';
+import { seatColorVar } from './geometry.js';
 import { SeatBar, TurnBanner, WallTray, type SeatView } from './GameHud.js';
 
 export interface GameViewProps {
@@ -251,18 +252,16 @@ export function MoveLog({
   onSelect?(ply: number): void;
 }): ReactNode {
   const { t } = useI18n();
-  const rows: { n: number; a?: string; b?: string; aPly?: number; bPly?: number }[] = [];
+  // One column per player. Pairing moves two-by-two would put unrelated
+  // players on the same row of a four-player game.
+  const seatCount = game.players.length;
+  const rows: { n: number; cells: ({ name: string; ply: number } | null)[] }[] = [];
   game.history.forEach((entry, i) => {
-    const index = Math.floor(i / 2);
-    if (!rows[index]) rows[index] = { n: index + 1 };
-    const name = moveName(entry.move, game.size);
-    if (i % 2 === 0) {
-      rows[index].a = name;
-      rows[index].aPly = i;
-    } else {
-      rows[index].b = name;
-      rows[index].bPly = i;
+    const index = Math.floor(i / seatCount);
+    if (!rows[index]) {
+      rows[index] = { n: index + 1, cells: Array.from({ length: seatCount }, () => null) };
     }
+    rows[index].cells[i % seatCount] = { name: moveName(entry.move, game.size), ply: i };
   });
 
   return (
@@ -273,9 +272,15 @@ export function MoveLog({
       {rows.length === 0 ? (
         <p className="small muted">—</p>
       ) : (
-        <div className="move-log">
+        <div className="move-log" style={{ '--log-cols': seatCount } as React.CSSProperties}>
           {rows.map((row) => (
-            <FragmentRow key={row.n} row={row} onSelect={onSelect} last={game.ply} />
+            <FragmentRow
+              key={row.n}
+              row={row}
+              seats={seatCount}
+              onSelect={onSelect}
+              last={game.ply}
+            />
           ))}
         </div>
       )}
@@ -285,32 +290,32 @@ export function MoveLog({
 
 function FragmentRow({
   row,
+  seats,
   onSelect,
   last,
 }: {
-  row: { n: number; a?: string; b?: string; aPly?: number; bPly?: number };
+  row: { n: number; cells: ({ name: string; ply: number } | null)[] };
+  seats: number;
   onSelect?(ply: number): void;
   last: number;
 }): ReactNode {
   return (
     <>
       <span className="move-log-num">{row.n}.</span>
-      <button
-        type="button"
-        className={`move-log-move${row.aPly === last - 1 ? ' is-current' : ''}`}
-        onClick={() => row.aPly !== undefined && onSelect?.(row.aPly)}
-        disabled={!onSelect || row.a === undefined}
-      >
-        {row.a ?? ''}
-      </button>
-      <button
-        type="button"
-        className={`move-log-move${row.bPly === last - 1 ? ' is-current' : ''}`}
-        onClick={() => row.bPly !== undefined && onSelect?.(row.bPly)}
-        disabled={!onSelect || row.b === undefined}
-      >
-        {row.b ?? ''}
-      </button>
+      {row.cells.map((cell, seat) => (
+        <button
+          key={seat}
+          type="button"
+          className={`move-log-move${seats > 2 ? ' has-seat' : ''}${
+            cell && cell.ply === last - 1 ? ' is-current' : ''
+          }`}
+          style={{ '--seat-color': seatColorVar(seat) } as React.CSSProperties}
+          onClick={() => cell && onSelect?.(cell.ply)}
+          disabled={!onSelect || !cell}
+        >
+          {cell?.name ?? ''}
+        </button>
+      ))}
     </>
   );
 }
