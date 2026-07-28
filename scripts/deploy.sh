@@ -97,8 +97,22 @@ retry scp -i "$KEY" -o ConnectTimeout=25 -q "$stage/bundle.tgz" "$HOST:/tmp/wall
 echo "→ installing and restarting"
 cat > "$stage/install.sh" <<REMOTE_SCRIPT
 set -euo pipefail
-tar xzf /tmp/wallrush-bundle.tgz -C "$REMOTE"
+# Unpack beside the live tree, then swap. Untarring *over* it leaves every
+# previous build's hashed assets behind for ever, and the swap is two renames
+# rather than a window where the files are missing.
+rm -rf "$REMOTE/.incoming"
+mkdir -p "$REMOTE/.incoming"
+tar xzf /tmp/wallrush-bundle.tgz -C "$REMOTE/.incoming"
 rm -f /tmp/wallrush-bundle.tgz
+rm -rf "$REMOTE/packages/client/dist.old"
+if [ -d "$REMOTE/packages/client/dist" ]; then
+  mv "$REMOTE/packages/client/dist" "$REMOTE/packages/client/dist.old"
+fi
+mv "$REMOTE/.incoming/packages/client/dist" "$REMOTE/packages/client/dist"
+rm -rf "$REMOTE/packages/client/dist.old"
+# The rest can be copied over in place: the server is about to restart anyway.
+cp -r "$REMOTE/.incoming/." "$REMOTE/"
+rm -rf "$REMOTE/.incoming"
 cd "$REMOTE"
 # The distro node is too old for node:sqlite; the pinned one lives here.
 PATH=/opt/node22/bin:\$PATH npm install --omit=dev --no-audit --no-fund >/dev/null
