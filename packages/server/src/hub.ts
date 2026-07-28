@@ -126,7 +126,10 @@ export class Hub {
       this.lobbyDirty = true;
     }
     if (event.type === 'empty') {
-      this.disposeRoom(room);
+      // Deliberately not disposed here. A host who refreshes the page has an
+      // empty room for a moment, and losing the code they just shared would be
+      // worse than keeping a few kilobytes around. `maintain` reaps it later.
+      this.lobbyDirty = true;
     }
   }
 
@@ -157,6 +160,9 @@ export class Hub {
     for (const room of this.rooms.values()) {
       if (room.visibility !== 'public') continue;
       if (room.status === 'finished') continue;
+      // A room nobody is sitting in is still alive (its host may be
+      // reconnecting) but there is nothing to advertise.
+      if (room.isEmpty) continue;
       rooms.push(room.toInfo());
     }
     rooms.sort((a, b) => {
@@ -281,7 +287,7 @@ export class Hub {
 
   private maintain(): void {
     for (const room of [...this.rooms.values()]) {
-      if (room.isEmpty && room.status !== 'playing') this.disposeRoom(room);
+      if (room.isAbandoned) this.disposeRoom(room);
       else if (room.isFinishedLongEnough && room.isEmpty) this.disposeRoom(room);
     }
     this.pumpQueue();

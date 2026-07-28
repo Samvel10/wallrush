@@ -96,6 +96,8 @@ export class Room {
   private botTimer: NodeJS.Timeout | null = null;
   private tickTimer: NodeJS.Timeout | null = null;
   private finishedAt = 0;
+  /** When the last member left, or null while somebody is here. */
+  emptySince: number | null = Date.now();
   private onEvent: (room: Room, event: RoomEvent) => void;
 
   constructor(opts: {
@@ -142,7 +144,15 @@ export class Room {
     );
   }
 
+  /** True once an empty room has waited out its grace period. */
+  get isAbandoned(): boolean {
+    if (this.status === 'playing') return false;
+    if (this.emptySince === null) return false;
+    return Date.now() - this.emptySince > config.emptyGraceMs;
+  }
+
   attach(participant: Participant): void {
+    this.emptySince = null;
     this.members.set(participant.userId, participant);
     const seat = this.seats.find((s) => s.userId === participant.userId);
     if (seat) seat.disconnectedAt = null;
@@ -167,6 +177,7 @@ export class Room {
   detach(userId: string): void {
     this.members.delete(userId);
     this.spectators.delete(userId);
+    if (this.members.size === 0) this.emptySince = Date.now();
     const seat = this.seats.find((s) => s.userId === userId);
     if (!seat) {
       this.emit({ type: 'update' });

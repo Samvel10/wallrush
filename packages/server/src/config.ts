@@ -29,6 +29,12 @@ export const config = {
   tokenTtlMs: envInt('WALLRUSH_TOKEN_TTL', 60 * 24 * 60 * 60 * 1000),
   /** How long a finished room lingers so players can rematch. */
   roomLingerMs: envInt('WALLRUSH_ROOM_LINGER', 3 * 60 * 1000),
+  /**
+   * How long an empty room is kept before it is thrown away. Long enough that
+   * a host who refreshes the page — or shares the code and then closes the tab
+   * for a moment — still has a room to come back to.
+   */
+  emptyGraceMs: envInt('WALLRUSH_EMPTY_GRACE', 90 * 1000),
   /** Grace period before a disconnected player forfeits. */
   reconnectGraceMs: envInt('WALLRUSH_RECONNECT_GRACE', 45 * 1000),
   /** Maximum concurrent rooms. */

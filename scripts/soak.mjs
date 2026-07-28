@@ -133,9 +133,17 @@ process.stdout.write(`start: ${JSON.stringify(before)}\n`);
 
 await Promise.all(Array.from({ length: GAMES }, (_, i) => playOne(i)));
 
-// Give the server a moment to reap the finished rooms.
-await new Promise((r) => setTimeout(r, 3000));
-const after = await (await fetch(`${URL_BASE}/api/health`)).json();
+// Wait for the rooms to be reaped. Finished tables deliberately linger for a
+// grace period so a host who refreshes does not lose their code, so this polls
+// rather than sleeping a fixed amount. Run the server with a short
+// WALLRUSH_EMPTY_GRACE to keep this quick.
+const reapDeadline = Date.now() + Number(opt('reap', 120_000));
+let after = await (await fetch(`${URL_BASE}/api/health`)).json();
+while (after.rooms > before.rooms && Date.now() < reapDeadline) {
+  await new Promise((r) => setTimeout(r, 1000));
+  after = await (await fetch(`${URL_BASE}/api/health`)).json();
+}
+const reapSeconds = Math.round((Number(opt('reap', 120_000)) - (reapDeadline - Date.now())) / 1000);
 
 latencies.sort((x, y) => x - y);
 const pick = (q) => latencies[Math.min(latencies.length - 1, Math.floor(latencies.length * q))];
@@ -145,7 +153,7 @@ process.stdout.write(
     `moves:      ${movesPlayed}`,
     `wall clock: ${((Date.now() - started) / 1000).toFixed(1)}s`,
     `latency:    p50 ${pick(0.5)}ms  p95 ${pick(0.95)}ms  p99 ${pick(0.99)}ms  max ${latencies.at(-1)}ms`,
-    `rooms:      ${before.rooms} before -> ${after.rooms} after`,
+    `rooms:      ${before.rooms} before -> ${after.rooms} after (reaped in ~${reapSeconds}s)`,
     `online:     ${before.online} before -> ${after.online} after`,
     `matches:    ${before.matches} -> ${after.matches}`,
   ].join('\n') + '\n',

@@ -883,6 +883,63 @@ test('a spectator can watch but cannot play', async () => {
   watcher.close();
 });
 
+test('a room survives its host refreshing the page', async () => {
+  const acc = await postJson<{ token: string }>(server.url, '/api/auth/register', {
+    username: 'refreshing_host',
+    password: 'password123',
+  });
+  const host = await TestClient.connect(server.url, acc.body.token);
+  await host.waitFor('welcome');
+  host.send({ t: 'room.create', visibility: 'private', config: { size: 9 } });
+  const created = await host.waitFor('room');
+  const code = created.room.code;
+
+  // The host closes the tab and comes straight back, as a refresh does. Losing
+  // the code they just shared with a friend would be the worst possible moment.
+  host.close();
+  await new Promise((r) => setTimeout(r, 400));
+
+  const back = await TestClient.connect(server.url, acc.body.token);
+  await back.waitFor('welcome');
+  back.send({ t: 'room.join', code });
+  const rejoined = await back.waitFor('room', undefined, 5000);
+  assert.equal(rejoined.room.code, code, 'the room is still there');
+
+  // A friend arriving after the refresh finds it too.
+  const friend = await TestClient.connect(server.url);
+  await friend.waitFor('welcome');
+  friend.send({ t: 'room.join', code });
+  const joined = await friend.waitFor('room', (m) => m.room.seats[1].user !== null, 5000);
+  assert.equal(joined.room.code, code);
+
+  back.close();
+  friend.close();
+});
+
+test('an empty room is not advertised in the lobby', async () => {
+  const watcher = await TestClient.connect(server.url);
+  const maker = await TestClient.connect(server.url);
+  await watcher.waitFor('welcome');
+  await maker.waitFor('welcome');
+  watcher.send({ t: 'lobby.subscribe' });
+  await watcher.waitFor('lobby');
+
+  maker.send({ t: 'room.create', name: 'ghost', visibility: 'public', config: { size: 9 } });
+  const created = await maker.waitFor('room');
+  await watcher.waitFor('lobby', (m) => m.rooms.some((r) => r.code === created.room.code), 6000);
+
+  // The maker vanishes. The room lives on for a while so they can come back,
+  // but an empty table has nothing to offer anyone browsing.
+  maker.close();
+  const after = await watcher.waitFor(
+    'lobby',
+    (m) => !m.rooms.some((r) => r.code === created.room.code),
+    8000,
+  );
+  assert.ok(!after.rooms.some((r) => r.code === created.room.code));
+  watcher.close();
+});
+
 test('a malformed message does not take the connection down', async () => {
   const client = await TestClient.connect(server.url);
   await client.waitFor('welcome');

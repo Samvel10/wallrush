@@ -56,10 +56,13 @@ jobs:
 
       - name: Soak
         run: |
+          # Short grace periods so the soak's leak check does not have to wait
+          # out the production defaults.
           WALLRUSH_DATA="$RUNNER_TEMP/wallrush-soak" PORT=8789 \
+          WALLRUSH_EMPTY_GRACE=2000 WALLRUSH_ROOM_LINGER=2000 \
             node packages/server/dist/index.js &
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8789/api/health > /dev/null; then break; fi
             sleep 1
           done
-          node scripts/soak.mjs --games 40 --url http://127.0.0.1:8789
+          node scripts/soak.mjs --games 40 --url http://127.0.0.1:8789 --reap 30000

@@ -52,6 +52,7 @@ Everything is served from that one port: the app, the API and the WebSocket.
 | `WALLRUSH_ORIGINS` | `*` | set to your domain in production |
 | `WALLRUSH_RECONNECT_GRACE` | `45000` | ms a disconnected player keeps their seat |
 | `WALLRUSH_ROOM_LINGER` | `180000` | ms a finished room stays around for a rematch |
+| `WALLRUSH_EMPTY_GRACE` | `90000` | ms an empty room is kept, so a host who refreshes keeps their code |
 | `WALLRUSH_RATE_LIMIT` | `25` | realtime messages per second per connection |
 | `WALLRUSH_MAX_ROOMS` | `4000` | |
 | `WALLRUSH_DEBUG` | `0` | `1` logs every realtime message — development only |
