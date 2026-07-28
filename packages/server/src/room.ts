@@ -149,6 +149,21 @@ export class Room {
     else this.spectators.add(participant.userId);
   }
 
+  /**
+   * An explicit departure, as opposed to a socket dropping.
+   *
+   * These are different things and must not be treated the same: a dropped
+   * connection deserves the reconnect grace period, but pressing "leave" is a
+   * decision, and the opponent should not be left staring at a frozen board
+   * for forty-five seconds waiting for someone who is not coming back.
+   */
+  leave(userId: string): void {
+    if (this.status === 'playing' && this.seatOf(userId) !== null) {
+      this.resign(userId);
+    }
+    this.detach(userId);
+  }
+
   detach(userId: string): void {
     this.members.delete(userId);
     this.spectators.delete(userId);

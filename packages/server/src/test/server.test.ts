@@ -792,6 +792,87 @@ test('a rematch restarts the game with the colours swapped', async () => {
   b.close();
 });
 
+test('leaving mid-game forfeits rather than freezing the table', async () => {
+  const a = await TestClient.connect(server.url);
+  const b = await TestClient.connect(server.url);
+  await a.waitFor('welcome');
+  await b.waitFor('welcome');
+
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { size: 5, wallsPerPlayer: 0, clockMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+  });
+  const created = await a.waitFor('room');
+  b.send({ t: 'room.join', code: created.room.code });
+  await b.waitFor('room', (m) => m.room.seats[1].user !== null);
+  a.send({ t: 'room.ready', ready: true });
+  b.send({ t: 'room.ready', ready: true });
+  await a.waitFor('game.start');
+  await b.waitFor('game.start');
+
+  // Pressing "leave" is a decision, not a flaky connection: the opponent must
+  // not be left waiting out the reconnect grace period.
+  a.send({ t: 'room.leave' });
+  const over = await b.waitFor('game.over', undefined, 5000);
+  assert.equal(over.ending, 'resign');
+  assert.equal(over.winner, 1, 'the player who stayed wins');
+
+  a.close();
+  b.close();
+});
+
+test('a spectator can watch but cannot play', async () => {
+  const a = await TestClient.connect(server.url);
+  const b = await TestClient.connect(server.url);
+  const watcher = await TestClient.connect(server.url);
+  await a.waitFor('welcome');
+  await b.waitFor('welcome');
+  await watcher.waitFor('welcome');
+
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { size: 5, wallsPerPlayer: 0, clockMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+  });
+  const created = await a.waitFor('room');
+  b.send({ t: 'room.join', code: created.room.code });
+  await b.waitFor('room', (m) => m.room.seats[1].user !== null);
+  a.send({ t: 'room.ready', ready: true });
+  b.send({ t: 'room.ready', ready: true });
+  const start = await a.waitFor('game.start');
+  await b.waitFor('game.start');
+
+  // A third arrival at a full table watches instead of displacing anyone.
+  watcher.send({ t: 'room.join', code: created.room.code });
+  const asWatcher = await watcher.waitFor('room');
+  assert.ok(
+    asWatcher.room.seats.every((s) => s.user !== null),
+    'both seats stay with the players',
+  );
+  const watching = await watcher.waitFor('game.start', undefined, 5000);
+  assert.equal(watching.seat, null, 'a spectator has no seat');
+
+  watcher.send({
+    t: 'game.move',
+    move: bestStep(Game.fromState(start.state), 0),
+    ply: 0,
+  });
+  const refused = await watcher.waitFor('error');
+  assert.equal(refused.code, 'not-seated');
+
+  // But they do see the game unfold.
+  a.send({ t: 'game.move', move: bestStep(Game.fromState(start.state), 0), ply: 0 });
+  const relayed = await watcher.waitFor('game.move', undefined, 5000);
+  assert.equal(relayed.by, 0);
+
+  a.close();
+  b.close();
+  watcher.close();
+});
+
 test('a malformed message does not take the connection down', async () => {
   const client = await TestClient.connect(server.url);
   await client.waitFor('welcome');

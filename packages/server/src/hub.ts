@@ -107,10 +107,15 @@ export class Hub {
     return true;
   }
 
+  /**
+   * Removes a player from their room deliberately — leaving, or being moved to
+   * another table. A live game they were seated at is forfeited; a socket that
+   * merely dropped goes through `Room.detach` instead and keeps its grace period.
+   */
   leave(userId: string): void {
     const room = this.roomOf(userId);
     if (!room) return;
-    room.detach(userId);
+    room.leave(userId);
     this.location.delete(userId);
     this.lobbyDirty = true;
   }
