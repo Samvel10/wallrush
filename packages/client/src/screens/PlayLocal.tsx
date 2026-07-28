@@ -121,7 +121,7 @@ export function PlayLocal({
       })
       .then((r) => setSavedMatchId(r.id))
       .catch(() => undefined);
-  }, [local.game, local.winner, settings.sound, botLevel, profile]);
+  }, [local.game, local.winner, settings.sound, botLevel, profile, mode]);
 
   const seats: SeatView[] = local.seats.map((s) => ({
     index: s.index,
