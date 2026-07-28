@@ -36,6 +36,13 @@
   -webkit-user-select: none;
 }
 
+/* While a wall is being carried, the finger belongs to the wall — without
+   this the browser reads the drag as a page scroll and cancels the gesture
+   halfway across the board. */
+.board-frame.is-dragging {
+  touch-action: none;
+}
+
 .board-frame.is-locked {
   cursor: default;
 }
@@ -587,7 +594,9 @@
   border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
 }
+/* A drag starts here, so this must not be read as the beginning of a scroll. */
 .wall-tray-btn {
+  touch-action: none;
   display: grid;
   place-items: center;
   width: 54px;

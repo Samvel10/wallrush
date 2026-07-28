@@ -303,7 +303,9 @@ function BoardImpl({
   return (
     <div
       ref={frameRef}
-      className={`board-frame${canAct ? '' : ' is-locked'}`}
+      className={`board-frame${canAct ? '' : ' is-locked'}${
+        dragOrientation !== null ? ' is-dragging' : ''
+      }`}
       style={
         {
           '--board-aspect': size / rows,
