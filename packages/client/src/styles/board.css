@@ -614,7 +614,10 @@
   display: grid;
   /* One column per player: pairing moves two-by-two in a four-player game
      puts unrelated players on the same row and makes the numbering lie. */
-  grid-template-columns: 2.2rem repeat(var(--log-cols, 2), 1fr);
+  /* `min-content` so a long name (k10h on an eleven-wide board) is never
+     chopped in half; the log scrolls in its own box instead. */
+  grid-template-columns: 2.2rem repeat(var(--log-cols, 2), minmax(min-content, 1fr));
+  overflow-x: auto;
   gap: 2px var(--space-2);
   align-content: start;
 }
