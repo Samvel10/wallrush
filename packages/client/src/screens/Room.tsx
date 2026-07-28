@@ -27,8 +27,8 @@ import { ResultModal } from './PlayLocal.js';
 const EMOTES = ['👏', '😂', '🫡', '🤝', '😮', '🔥', '🤔', '😅'];
 
 export function Room({ code }: { code: string }): ReactNode {
-  const { t, f } = useI18n();
-  const { go, back } = useRouter();
+  const { t } = useI18n();
+  const { go } = useRouter();
   const { profile } = useSession();
   const { settings } = useSettings();
   const toast = useToast();

@@ -179,7 +179,7 @@ function BoardImpl({
     const north = game.players.find((p) => isGoal(p.side, 0, 0, size))?.index ?? 0;
     const south = game.players.find((p) => isGoal(p.side, size - 1, 0, size))?.index ?? 1;
     return flipped ? [south, north] : [north, south];
-  }, [game, size, flipped, /* eslint-disable-line */ ]);
+  }, [game, size, flipped]);
 
   const cells: React.ReactNode[] = [];
   for (let r = 0; r < size; r++) {

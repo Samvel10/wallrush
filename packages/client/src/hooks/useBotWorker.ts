@@ -32,6 +32,9 @@ export function useBotWorker(): {
   const nextId = useRef(1);
 
   useEffect(() => {
+    // Captured for the cleanup: reading `pending.current` there would look at
+    // whatever the ref points to at teardown time, not at mount time.
+    const inFlight = pending.current;
     let worker: Worker | null = null;
     try {
       worker = new Worker(new URL('../worker/bot.worker.ts', import.meta.url), {
@@ -55,7 +58,7 @@ export function useBotWorker(): {
     return () => {
       worker?.terminate();
       workerRef.current = null;
-      pending.current.clear();
+      inFlight.clear();
     };
   }, []);
 

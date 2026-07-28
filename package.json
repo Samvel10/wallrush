@@ -20,7 +20,15 @@
     "dev:client": "npm run dev -w @wallrush/client",
     "start": "node packages/server/dist/index.js",
     "test": "npm run test -w @wallrush/shared && npm run test -w @wallrush/server && npm run test -w @wallrush/client",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "typecheck": "tsc -b packages/shared packages/server && npm run typecheck -w @wallrush/client",
     "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^17.8.0",
+    "typescript-eslint": "^8.65.0"
   }
 }

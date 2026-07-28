@@ -337,7 +337,7 @@ export function Replay({ id }: { id: string }): ReactNode {
                     <span className="spinner" /> {t.profile.analysing}
                   </button>
                 ) : null}
-                <ReviewSummary review={review} moves={moves} match={match} nameOf={nameOf} />
+                <ReviewSummary review={review} match={match} nameOf={nameOf} />
                 {current ? (
                   <p className="tiny muted" style={{ margin: 0 }}>
                     {t.profile.bestMove}:{' '}
@@ -462,12 +462,10 @@ function ReplayRow({
 /** Per-player tally of how the game was actually played. */
 function ReviewSummary({
   review,
-  moves,
   match,
   nameOf,
 }: {
   review: (MoveReview | null)[];
-  moves: ReturnType<typeof parseTranscript>;
   match: MatchData;
   nameOf(seat: number): string;
 }): ReactNode {

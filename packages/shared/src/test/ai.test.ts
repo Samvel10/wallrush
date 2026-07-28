@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { Bot, BOT_PROFILES, qualityOf } from '../ai.js';
 import { Game } from '../engine.js';
-import { MoveKind, Orientation, type BotLevel } from '../types.js';
+import { MoveKind, type BotLevel } from '../types.js';
 
 /** Play a full bot-vs-bot game and return the winner (or null on a stall). */
 function playOut(

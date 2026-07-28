@@ -12,7 +12,6 @@ import {
   applyElo,
   Bot,
   BOT_PROFILES,
-  BOT_RATING,
   cloneConfig,
   DEFAULT_CONFIG,
   Game,

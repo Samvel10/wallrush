@@ -40,6 +40,7 @@
 
 ```bash
 npm test          # 99 թեստ
+npm run lint
 npm run typecheck
 npm run build
 npm start         # http://localhost:8787

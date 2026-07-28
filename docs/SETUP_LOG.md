@@ -415,3 +415,27 @@ grace-երով։ Արդյունք՝ `rooms: 0 → 0 (reaped in ~3s)`։
 «մրցակիցը կապ չունի»։
 
 **Թեստեր.** +1։ Ընդամենը՝ 99։
+
+
+---
+
+### 08:40–09:00 — Lint
+
+**Ինչու.** TypeScript-ի strict ռեժիմը ծածկում է շատ բան, բայց **չի** կարող
+արտահայտել React-ի hook-երի կախվածությունների վերլուծությունը — իսկ հնացած
+dependency array-ը UI-ի ամենաթաքուն սխալների աղբյուրն է։
+
+**Կարգավորում.** ESLint 9 + typescript-eslint + `eslint-plugin-react-hooks`,
+`exhaustive-deps`-ը որպես **error**, ոչ warning։ Ոճը չի ստուգվում — դա
+ֆորմատավորիչի գործն է։
+
+**Առաջին անցումը՝ 6 սխալ + 1 զգուշացում.**
+- 4 մեռած import/փոփոխական (`BOT_RATING`, `Orientation`, `f`, `back`, `moves`)
+- 1 անօգուտ `eslint-disable` մեկնաբանություն Board-ի dependency array-ում
+- 1 **իրական** խնդիր՝ `useBotWorker`-ի cleanup-ը կարդում էր `pending.current`
+  քանդման պահին, ոչ թե mount-ի. ref-ը հիմա պահվում է լոկալ փոփոխականում
+
+**Կարևոր բացասական արդյունք.** `exhaustive-deps`-ը **ոչ մի** հնացած
+dependency array չգտավ ամբողջ client-ում։ Դա լավ նշան է hook-երի կոդի համար։
+
+`npm run lint` ավելացվեց, և CI-ն հիմա lint-ում է typecheck-ից առաջ։
