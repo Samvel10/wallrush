@@ -13,8 +13,16 @@
   /* Leave room for the seat strips, turn banner and toolbar so the whole
      game fits a short laptop screen without scrolling. */
   /* A race track is taller than it is wide, so the height budget has to come
-     from the board's own shape rather than a hard-coded square. */
-  max-width: min(calc(66vh * var(--board-aspect, 1)), 680px);
+     from the board's own shape rather than a hard-coded square.
+     The second term is what stops a tall board pushing the toolbar off the
+     bottom of a phone: roughly 340px goes to the header, the two seat cards,
+     the turn banner and the controls, and the board gets what is left. The
+     `min` means this only ever binds for boards taller than they are wide. */
+  max-width: min(
+    calc(66vh * var(--board-aspect, 1)),
+    calc(max(320px, 100dvh - 392px) * var(--board-aspect, 1)),
+    680px
+  );
   margin-inline: auto;
   aspect-ratio: var(--board-aspect, 1);
   border-radius: var(--radius-xl);
