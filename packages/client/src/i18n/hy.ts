@@ -366,6 +366,8 @@ export const hy = {
   },
 
   common: {
+    updateReady: 'Նոր տարբերակ կա',
+    updateReload: 'Թարմացնել',
     yes: 'Այո',
     no: 'Ոչ',
     ok: 'Լավ',

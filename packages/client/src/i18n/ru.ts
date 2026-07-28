@@ -367,6 +367,8 @@ export const ru: Dictionary = {
   },
 
   common: {
+    updateReady: 'Есть новая версия',
+    updateReload: 'Обновить',
     yes: 'Да',
     no: 'Нет',
     ok: 'ОК',

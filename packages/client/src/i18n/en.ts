@@ -367,6 +367,8 @@ export const en: Dictionary = {
   },
 
   common: {
+    updateReady: 'A newer version is ready',
+    updateReload: 'Reload',
     yes: 'Yes',
     no: 'No',
     ok: 'OK',
