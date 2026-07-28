@@ -31,8 +31,8 @@ test('cells and gaps tile the board exactly', () => {
       Math.abs(right - 100) < 1e-9,
       `size ${size}: board ends at ${right}% instead of 100%`,
     );
-    assert.ok(Math.abs(m.gap - m.cell * GAP_RATIO) < 1e-9);
-    assert.ok(Math.abs(m.pitch - (m.cell + m.gap)) < 1e-9);
+    assert.ok(Math.abs(m.x.gap - m.x.cell * GAP_RATIO) < 1e-9);
+    assert.ok(Math.abs(m.x.pitch - (m.x.cell + m.x.gap)) < 1e-9);
   }
 });
 
@@ -46,8 +46,8 @@ test('the first cell starts at the origin', () => {
 test('cell centres are where you would draw them', () => {
   const m = metricsFor(9);
   const c = cellCentre(m, 0, 0);
-  assert.ok(Math.abs(c.x - m.cell / 2) < 1e-9);
-  assert.ok(Math.abs(c.y - m.cell / 2) < 1e-9);
+  assert.ok(Math.abs(c.x - m.x.cell / 2) < 1e-9);
+  assert.ok(Math.abs(c.y - m.x.cell / 2) < 1e-9);
   const mid = cellCentre(m, 4, 4);
   assert.ok(Math.abs(mid.x - 50) < 0.001, `centre cell should sit at 50%, got ${mid.x}`);
   assert.ok(Math.abs(mid.y - 50) < 0.001);
@@ -56,8 +56,8 @@ test('cell centres are where you would draw them', () => {
 test('a horizontal wall spans two cells and sits in the gap', () => {
   const m = metricsFor(9);
   const w = wallBox(m, 3, 4, 0);
-  assert.ok(Math.abs(pct(w.width) - (2 * m.cell + m.gap)) < 1e-9, 'spans two cells plus the gap');
-  assert.ok(Math.abs(pct(w.height) - m.gap) < 1e-9, 'is as thick as the gap');
+  assert.ok(Math.abs(pct(w.width) - (2 * m.x.cell + m.x.gap)) < 1e-9, 'spans two cells plus the gap');
+  assert.ok(Math.abs(pct(w.height) - m.x.gap) < 1e-9, 'is as thick as the gap');
   // It must start exactly where column 4 starts and end where column 5 ends.
   const c4 = cellBox(m, 3, 4);
   const c5 = cellBox(m, 3, 5);
@@ -122,8 +122,8 @@ test('the slot thickness ratio matches the geometry it is drawn against', () => 
   // The visible bar is SLOT_THICKNESS_PCT of the slot box, and must equal the gap.
   const bar = (pct(slot.height) * SLOT_THICKNESS_PCT) / 100;
   assert.ok(
-    Math.abs(bar - m.gap) < 1e-9,
-    `bar is ${bar}% of the board but the gap is ${m.gap}%`,
+    Math.abs(bar - m.x.gap) < 1e-9,
+    `bar is ${bar}% of the board but the gap is ${m.x.gap}%`,
   );
 });
 
@@ -132,7 +132,7 @@ test('the slot ratio is the same for every board size', () => {
     const m = metricsFor(size);
     const slot = slotBox(m, 0, 0, 1);
     const bar = (pct(slot.width) * SLOT_THICKNESS_PCT) / 100;
-    assert.ok(Math.abs(bar - m.gap) < 1e-9, `size ${size} mismatch`);
+    assert.ok(Math.abs(bar - m.x.gap) < 1e-9, `size ${size} mismatch`);
   }
 });
 

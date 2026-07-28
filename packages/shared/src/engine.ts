@@ -7,9 +7,12 @@
  *
  * Internal representation
  * -----------------------
- *   hBlock[r * size + c]  edge between (r,c) and (r+1,c) is blocked
- *   vBlock[r * size + c]  edge between (r,c) and (r,c+1) is blocked
- *   wallAt[r * (size-1) + c]  0 = free, 1 = horizontal wall, 2 = vertical wall
+ *   hBlock[r * cols + c]  edge between (r,c) and (r+1,c) is blocked
+ *   vBlock[r * cols + c]  edge between (r,c) and (r,c+1) is blocked
+ *   wallAt[r * (cols-1) + c]  0 = free, 1 = horizontal wall, 2 = vertical wall
+ *
+ * Boards are not necessarily square: a race is run on a long track, so every
+ * index below carries `cols` for the stride and checks `rows` separately.
  *
  * A horizontal wall anchored at intersection (r,c) blocks hBlock(r,c) and
  * hBlock(r,c+1); a vertical wall blocks vBlock(r,c) and vBlock(r+1,c). Because
@@ -24,6 +27,7 @@ import {
   Side,
   type BoardSize,
   type GameConfig,
+  type GameMode,
   type GameState,
   type Move,
   type PlayerIndex,
@@ -59,40 +63,64 @@ const PERP: ReadonlyArray<readonly [number, number]>[] = [
   ],
 ];
 
-export function defaultWallsFor(players: 2 | 4, size: BoardSize): number {
-  if (players === 4) return size >= 9 ? 5 : 3;
+export function defaultWallsFor(players: 2 | 4, size: BoardSize, mode: GameMode = 'duel'): number {
+  // A race is longer and both players are running the same way, so blocking
+  // matters more and there are more walls to do it with.
+  if (mode === 'race') return 15;
+  if (players === 4) return 5;
   return size >= 9 ? 10 : size === 7 ? 7 : 4;
 }
 
+/** Board height for a config: a race runs on a track, a duel on a square. */
+export function rowsFor(config: Pick<GameConfig, 'size' | 'rows' | 'mode'>): number {
+  if (config.rows) return config.rows;
+  return config.mode === 'race' ? RACE_ROWS : config.size;
+}
+
+/** Height of the standard race track, measured off the original game. */
+export const RACE_ROWS = 13;
+
 /** Seat order used when seating 2 or 4 players. */
-export function sidesFor(players: 2 | 4): Side[] {
+export function sidesFor(players: 2 | 4, mode: GameMode = 'duel'): Side[] {
+  // Both racers face the same way; there is one finish line, not two goals.
+  if (mode === 'race') return [Side.South, Side.South];
   return players === 2
     ? [Side.South, Side.North]
     : [Side.South, Side.North, Side.West, Side.East];
 }
 
-export function startPos(side: Side, size: number): Pos {
-  const mid = (size - 1) >> 1;
+export function startPos(side: Side, rows: number, cols = rows): Pos {
+  const midRow = (rows - 1) >> 1;
+  const midCol = (cols - 1) >> 1;
   switch (side) {
     case Side.South:
-      return { r: size - 1, c: mid };
+      return { r: rows - 1, c: midCol };
     case Side.North:
-      return { r: 0, c: mid };
+      return { r: 0, c: midCol };
     case Side.West:
-      return { r: mid, c: 0 };
+      return { r: midRow, c: 0 };
     case Side.East:
-      return { r: mid, c: size - 1 };
+      return { r: midRow, c: cols - 1 };
   }
 }
 
-export function isGoal(side: Side, r: number, c: number, size: number): boolean {
+/**
+ * Where the racers line up: both on the bottom row, spaced evenly either side
+ * of centre so neither starts with a shorter route than the other.
+ */
+export function raceStartPos(seat: number, rows: number, cols: number): Pos {
+  const inset = Math.max(1, Math.floor(cols / 4));
+  return { r: rows - 1, c: seat === 0 ? inset : cols - 1 - inset };
+}
+
+export function isGoal(side: Side, r: number, c: number, rows: number, cols = rows): boolean {
   switch (side) {
     case Side.South:
       return r === 0;
     case Side.North:
-      return r === size - 1;
+      return r === rows - 1;
     case Side.West:
-      return c === size - 1;
+      return c === cols - 1;
     case Side.East:
       return c === 0;
   }
@@ -115,7 +143,7 @@ export function sameMove(a: Move, b: Move): boolean {
 export function cloneConfig(partial?: Partial<GameConfig>): GameConfig {
   const merged: GameConfig = { ...DEFAULT_CONFIG, ...partial };
   if (partial && partial.wallsPerPlayer === undefined) {
-    merged.wallsPerPlayer = defaultWallsFor(merged.players, merged.size);
+    merged.wallsPerPlayer = defaultWallsFor(merged.players, merged.size, merged.mode);
   }
   return merged;
 }
@@ -141,7 +169,10 @@ const OUT_OF_BOUNDS: LegalityResult = { ok: false, reason: 'out-of-bounds' };
 
 export class Game {
   readonly config: GameConfig;
+  /** Board width. Named `size` for the many square boards that came first. */
   readonly size: number;
+  readonly cols: number;
+  readonly rows: number;
 
   players: PlayerState[];
   walls: Wall[] = [];
@@ -162,19 +193,22 @@ export class Game {
 
   constructor(config?: Partial<GameConfig>) {
     this.config = cloneConfig(config);
-    const n = (this.size = this.config.size);
-    this.hBlock = new Uint8Array(n * n);
-    this.vBlock = new Uint8Array(n * n);
-    this.wallAt = new Uint8Array((n - 1) * (n - 1));
-    this.bfsDist = new Int16Array(n * n);
-    this.bfsQueue = new Int16Array(n * n);
-    this.occ = new Int8Array(n * n);
+    const cols = (this.cols = this.size = this.config.size);
+    const rows = (this.rows = rowsFor(this.config));
+    const cells = rows * cols;
+    this.hBlock = new Uint8Array(cells);
+    this.vBlock = new Uint8Array(cells);
+    this.wallAt = new Uint8Array((rows - 1) * (cols - 1));
+    this.bfsDist = new Int16Array(cells);
+    this.bfsQueue = new Int16Array(cells);
+    this.occ = new Int8Array(cells);
 
-    const sides = sidesFor(this.config.players);
+    const race = this.config.mode === 'race';
+    const sides = sidesFor(this.config.players, this.config.mode);
     this.players = sides.map((side, index) => ({
       index,
       side,
-      pos: startPos(side, n),
+      pos: race ? raceStartPos(index, rows, cols) : startPos(side, rows, cols),
       walls: this.config.wallsPerPlayer,
       finished: false,
       rank: 0,
@@ -186,11 +220,11 @@ export class Game {
   // ---------------------------------------------------------------- geometry
 
   private idx(r: number, c: number): number {
-    return r * this.size + c;
+    return r * this.cols + c;
   }
 
   inBounds(r: number, c: number): boolean {
-    return r >= 0 && c >= 0 && r < this.size && c < this.size;
+    return r >= 0 && c >= 0 && r < this.rows && c < this.cols;
   }
 
   /** True when a wall blocks the step from (r,c) to (r+dr,c+dc). */
@@ -216,14 +250,13 @@ export class Game {
   // ------------------------------------------------------------------- walls
 
   wallKindAt(r: number, c: number): number {
-    if (r < 0 || c < 0 || r > this.size - 2 || c > this.size - 2) return 0;
-    return this.wallAt[r * (this.size - 1) + c];
+    if (r < 0 || c < 0 || r > this.rows - 2 || c > this.cols - 2) return 0;
+    return this.wallAt[r * (this.cols - 1) + c];
   }
 
   /** Cheap structural check: bounds, crossings and overlaps. No path check. */
   wallShapeLegal(w: Wall): LegalityResult {
-    const n = this.size;
-    if (w.r < 0 || w.c < 0 || w.r > n - 2 || w.c > n - 2) return OUT_OF_BOUNDS;
+    if (w.r < 0 || w.c < 0 || w.r > this.rows - 2 || w.c > this.cols - 2) return OUT_OF_BOUNDS;
     if (this.wallKindAt(w.r, w.c) !== 0) return { ok: false, reason: 'wall-crosses' };
     if (w.o === Orientation.Horizontal) {
       if (this.wallKindAt(w.r, w.c - 1) === 1 || this.wallKindAt(w.r, w.c + 1) === 1)
@@ -237,7 +270,7 @@ export class Game {
 
   private setWall(w: Wall, on: boolean): void {
     const v = on ? 1 : 0;
-    const n = this.size;
+    const n = this.cols;
     if (w.o === Orientation.Horizontal) {
       this.hBlock[this.idx(w.r, w.c)] = v;
       this.hBlock[this.idx(w.r, w.c + 1)] = v;
@@ -277,7 +310,8 @@ export class Game {
    * Returns -1 when the goal is unreachable.
    */
   distanceToGoal(r: number, c: number, side: Side): number {
-    const n = this.size;
+    const rows = this.rows;
+    const cols = this.cols;
     const dist = this.bfsDist;
     const queue = this.bfsQueue;
     dist.fill(-1);
@@ -286,23 +320,23 @@ export class Game {
     const start = this.idx(r, c);
     dist[start] = 0;
     queue[tail++] = start;
-    if (isGoal(side, r, c, n)) return 0;
+    if (isGoal(side, r, c, rows, cols)) return 0;
     while (head < tail) {
       const cur = queue[head++];
-      const cr = (cur / n) | 0;
-      const cc = cur - cr * n;
+      const cr = (cur / cols) | 0;
+      const cc = cur - cr * cols;
       const d = dist[cur];
       for (let i = 0; i < 4; i++) {
         const dr = DIRS[i][0];
         const dc = DIRS[i][1];
         const nr = cr + dr;
         const nc = cc + dc;
-        if (nr < 0 || nc < 0 || nr >= n || nc >= n) continue;
-        const ni = nr * n + nc;
+        if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) continue;
+        const ni = nr * cols + nc;
         if (dist[ni] !== -1) continue;
         if (this.blocked(cr, cc, dr, dc)) continue;
         dist[ni] = d + 1;
-        if (isGoal(side, nr, nc, n)) return d + 1;
+        if (isGoal(side, nr, nc, rows, cols)) return d + 1;
         queue[tail++] = ni;
       }
     }
@@ -320,32 +354,34 @@ export class Game {
    */
   shortestPath(seat: PlayerIndex): Pos[] {
     const p = this.players[seat];
-    const n = this.size;
-    const dist = new Int16Array(n * n).fill(-1);
-    const prev = new Int16Array(n * n).fill(-1);
-    const queue = new Int16Array(n * n);
+    const rows = this.rows;
+    const cols = this.cols;
+    const cells = rows * cols;
+    const dist = new Int16Array(cells).fill(-1);
+    const prev = new Int16Array(cells).fill(-1);
+    const queue = new Int16Array(cells);
     let head = 0;
     let tail = 0;
     const start = this.idx(p.pos.r, p.pos.c);
     dist[start] = 0;
     queue[tail++] = start;
-    let goalCell = isGoal(p.side, p.pos.r, p.pos.c, n) ? start : -1;
+    let goalCell = isGoal(p.side, p.pos.r, p.pos.c, rows, cols) ? start : -1;
     while (head < tail && goalCell === -1) {
       const cur = queue[head++];
-      const cr = (cur / n) | 0;
-      const cc = cur - cr * n;
+      const cr = (cur / cols) | 0;
+      const cc = cur - cr * cols;
       for (let i = 0; i < 4; i++) {
         const dr = DIRS[i][0];
         const dc = DIRS[i][1];
         const nr = cr + dr;
         const nc = cc + dc;
-        if (nr < 0 || nc < 0 || nr >= n || nc >= n) continue;
-        const ni = nr * n + nc;
+        if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) continue;
+        const ni = nr * cols + nc;
         if (dist[ni] !== -1) continue;
         if (this.blocked(cr, cc, dr, dc)) continue;
         dist[ni] = dist[cur] + 1;
         prev[ni] = cur;
-        if (isGoal(p.side, nr, nc, n)) {
+        if (isGoal(p.side, nr, nc, rows, cols)) {
           goalCell = ni;
           break;
         }
@@ -355,7 +391,7 @@ export class Game {
     if (goalCell === -1) return [];
     const out: Pos[] = [];
     for (let cell = goalCell; cell !== -1; cell = prev[cell]) {
-      out.push({ r: (cell / n) | 0, c: cell % n });
+      out.push({ r: (cell / cols) | 0, c: cell % cols });
     }
     return out.reverse();
   }
@@ -432,9 +468,8 @@ export class Game {
   /** All structurally-placeable walls (cheap filter, no path check). */
   candidateWalls(): Wall[] {
     const out: Wall[] = [];
-    const n = this.size;
-    for (let r = 0; r <= n - 2; r++) {
-      for (let c = 0; c <= n - 2; c++) {
+    for (let r = 0; r <= this.rows - 2; r++) {
+      for (let c = 0; c <= this.cols - 2; c++) {
         for (let o = 0 as 0 | 1; o <= 1; o = (o + 1) as 0 | 1) {
           const w: Wall = { r, c, o };
           if (this.wallShapeLegal(w).ok) out.push(w);
@@ -460,7 +495,7 @@ export class Game {
       this.occ[this.idx(player.pos.r, player.pos.c)] = -1;
       player.pos = { r: move.to.r, c: move.to.c };
       this.occ[this.idx(player.pos.r, player.pos.c)] = seat;
-      if (isGoal(player.side, player.pos.r, player.pos.c, this.size)) {
+      if (isGoal(player.side, player.pos.r, player.pos.c, this.rows, this.cols)) {
         player.finished = true;
         player.rank = this.players.filter((p) => p.finished).length;
         this.occ[this.idx(player.pos.r, player.pos.c)] = -1;
@@ -536,7 +571,7 @@ export class Game {
       this.occ[this.idx(player.pos.r, player.pos.c)] = -1;
       player.pos = { r: move.to.r, c: move.to.c };
       this.occ[this.idx(player.pos.r, player.pos.c)] = seat;
-      if (isGoal(player.side, player.pos.r, player.pos.c, this.size)) {
+      if (isGoal(player.side, player.pos.r, player.pos.c, this.rows, this.cols)) {
         player.finished = true;
         this.occ[this.idx(player.pos.r, player.pos.c)] = -1;
         if (this.winner === null) this.winner = seat;

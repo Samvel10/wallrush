@@ -16,6 +16,8 @@ import {
   cellBox,
   cellCentre,
   metricsFor,
+  nearestSlot,
+  seatDeepVar,
   slotBox,
   wallBox,
   type BoardMetrics,
@@ -43,6 +45,9 @@ export interface BoardProps {
   onStep(to: Pos): void;
   onWall(wall: Wall): void;
   onPreviewChange?(wall: Wall | null): void;
+  /** Orientation of a wall currently being dragged out of the tray. */
+  dragOrientation?: 0 | 1 | null;
+  onDragFinish?(): void;
 }
 
 function BoardImpl({
@@ -61,12 +66,16 @@ function BoardImpl({
   onStep,
   onWall,
   onPreviewChange,
+  dragOrientation = null,
+  onDragFinish,
 }: BoardProps) {
-  const size = game.size;
-  const m = useMemo(() => metricsFor(size), [size]);
+  const size = game.cols;
+  const rows = game.rows;
+  const m = useMemo(() => metricsFor(rows, size), [rows, size]);
   const [pending, setPending] = useState<Wall | null>(null);
   const [pendingStep, setPendingStep] = useState<Pos | null>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
 
   const controllingSeat = activeSeat ?? mySeat ?? 0;
   const canAct = interactive && activeSeat !== null && !game.isOver;
@@ -93,7 +102,7 @@ function BoardImpl({
     if (!canAct || mode !== 'wall') return new Set<string>();
     const out = new Set<string>();
     if (game.players[controllingSeat].walls <= 0) return out;
-    for (let r = 0; r <= size - 2; r++) {
+    for (let r = 0; r <= rows - 2; r++) {
       for (let c = 0; c <= size - 2; c++) {
         if (game.isWallLegal({ r, c, o: orientation }, controllingSeat).ok) {
           out.add(`${r}:${c}`);
@@ -101,7 +110,7 @@ function BoardImpl({
       }
     }
     return out;
-  }, [canAct, mode, game, controllingSeat, orientation, size]);
+  }, [canAct, mode, game, controllingSeat, orientation, rows, size]);
 
   const path = useMemo(() => {
     if (!showPath || mySeat === null || game.isOver) return [];
@@ -135,6 +144,66 @@ function BoardImpl({
     [orientation, legalWallSlots, confirmMoves, pending, commitWall, onPreviewChange],
   );
 
+  /**
+   * Dragging a wall out of the tray and dropping it on the board.
+   *
+   * Tapping a slot works too, but a wall is a physical object in this game and
+   * people reach for it that way: pick it up, carry it, put it down. The whole
+   * gesture lives on `window` so the wall keeps following the finger even when
+   * it strays off the board.
+   */
+  useEffect(() => {
+    if (dragOrientation === null || !canAct) return;
+    const slotUnder = (clientX: number, clientY: number): Wall | null => {
+      const box = boardRef.current?.getBoundingClientRect();
+      if (!box || box.width === 0 || box.height === 0) return null;
+      const x = ((clientX - box.left) / box.width) * 100;
+      const y = ((clientY - box.top) / box.height) * 100;
+      const view = nearestSlot(m, x, y, dragOrientation);
+      if (!view) return null;
+      // `nearestSlot` answers in screen coordinates; the legality set is in
+      // board coordinates, and the mapping between them is its own inverse.
+      const r = flipped ? rows - 2 - view.r : view.r;
+      const c = flipped ? size - 2 - view.c : view.c;
+      if (!legalWallSlots.has(`${r}:${c}`)) return null;
+      return { r, c, o: dragOrientation };
+    };
+
+    let carried: Wall | null = null;
+    const move = (e: PointerEvent) => {
+      carried = slotUnder(e.clientX, e.clientY);
+      setPending(carried);
+      onPreviewChange?.(carried);
+      e.preventDefault();
+    };
+    const drop = (e: PointerEvent) => {
+      const target = slotUnder(e.clientX, e.clientY) ?? carried;
+      setPending(null);
+      onPreviewChange?.(null);
+      if (target) onWall(target);
+      onDragFinish?.();
+    };
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', drop);
+    window.addEventListener('pointercancel', drop);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', drop);
+      window.removeEventListener('pointercancel', drop);
+    };
+  }, [
+    dragOrientation,
+    canAct,
+    m,
+    flipped,
+    rows,
+    size,
+    legalWallSlots,
+    onWall,
+    onPreviewChange,
+    onDragFinish,
+  ]);
+
   const handleStep = useCallback(
     (to: Pos) => {
       if (!confirmMoves) {
@@ -153,36 +222,52 @@ function BoardImpl({
 
   // Rotating the board 180° keeps "forward" pointing away from the player.
   const view = useCallback(
-    (r: number, c: number): [number, number] => (flipped ? [size - 1 - r, size - 1 - c] : [r, c]),
-    [flipped, size],
+    (r: number, c: number): [number, number] =>
+      flipped ? [rows - 1 - r, size - 1 - c] : [r, c],
+    [flipped, rows, size],
   );
   const viewWall = useCallback(
     (w: Wall): { r: number; c: number } =>
-      flipped ? { r: size - 2 - w.r, c: size - 2 - w.c } : { r: w.r, c: w.c },
-    [flipped, size],
+      flipped ? { r: rows - 2 - w.r, c: size - 2 - w.c } : { r: w.r, c: w.c },
+    [flipped, rows, size],
   );
+
+  // In a race there is one finish line for everybody, so it must not be
+  // painted in either player's colour — that would read as "their goal".
+  const isRace = game.config.mode === 'race';
+
+  // Who built which wall. The engine stores walls in placement order and the
+  // history records who moved, so the two line up exactly — and a wall you can
+  // see the owner of tells a story the board otherwise hides.
+  const wallOwners = useMemo(() => {
+    const owners: number[] = [];
+    for (const entry of game.history) {
+      if (entry.move.kind === MoveKind.Wall) owners.push(entry.by);
+    }
+    return owners;
+  }, [game.history]);
 
   const goalOwners = useMemo(() => {
     const owners = new Map<string, number>();
     for (const p of game.players) {
-      for (let r = 0; r < size; r++) {
+      for (let r = 0; r < rows; r++) {
         for (let c = 0; c < size; c++) {
-          if (isGoal(p.side, r, c, size)) owners.set(`${r}:${c}`, p.index);
+          if (isGoal(p.side, r, c, rows, size)) owners.set(`${r}:${c}`, p.index);
         }
       }
     }
     return owners;
-  }, [game, size]);
+  }, [game, rows, size]);
 
   const [topGoal, bottomGoal] = useMemo(() => {
     // Whoever must reach row 0 owns the top edge on screen (after flipping).
-    const north = game.players.find((p) => isGoal(p.side, 0, 0, size))?.index ?? 0;
-    const south = game.players.find((p) => isGoal(p.side, size - 1, 0, size))?.index ?? 1;
+    const north = game.players.find((p) => isGoal(p.side, 0, 0, rows, size))?.index ?? 0;
+    const south = game.players.find((p) => isGoal(p.side, rows - 1, 0, rows, size))?.index ?? 1;
     return flipped ? [south, north] : [north, south];
-  }, [game, size, flipped]);
+  }, [game, rows, size, flipped]);
 
   const cells: React.ReactNode[] = [];
-  for (let r = 0; r < size; r++) {
+  for (let r = 0; r < rows; r++) {
     for (let c = 0; c < size; c++) {
       const [vr, vc] = view(r, c);
       const owner = goalOwners.get(`${r}:${c}`);
@@ -195,7 +280,7 @@ function BoardImpl({
           key={`cell-${r}-${c}`}
           className={[
             'cell',
-            owner !== undefined ? `is-goal-${owner}` : '',
+            owner === undefined ? '' : isRace ? 'is-finish' : `is-goal-${owner}`,
             isLast ? 'is-last-move' : '',
           ]
             .filter(Boolean)
@@ -203,9 +288,9 @@ function BoardImpl({
           style={cellBox(m, vr, vc)}
         >
           {showCoordinates && c === 0 ? (
-            <span className="cell-coord">{size - r}</span>
+            <span className="cell-coord">{rows - r}</span>
           ) : null}
-          {showCoordinates && r === size - 1 ? (
+          {showCoordinates && r === rows - 1 ? (
             <span className="cell-coord" style={{ insetInlineStart: 'auto', insetInlineEnd: 4, insetBlockStart: 'auto', insetBlockEnd: 2 }}>
               {String.fromCharCode(97 + c)}
             </span>
@@ -221,29 +306,31 @@ function BoardImpl({
       className={`board-frame${canAct ? '' : ' is-locked'}`}
       style={
         {
-          '--goal-top': `var(--p${topGoal})`,
-          '--goal-bottom': `var(--p${bottomGoal})`,
+          '--board-aspect': size / rows,
+          '--goal-top': isRace ? 'var(--success)' : `var(--p${topGoal})`,
+          '--goal-bottom': isRace ? 'var(--border)' : `var(--p${bottomGoal})`,
           '--seat-color': `var(--p${controllingSeat})`,
           '--slot-thickness': `${SLOT_THICKNESS_PCT}%`,
         } as React.CSSProperties
       }
     >
-      <div className="board">
+      <div className="board" ref={boardRef}>
         {cells}
 
         {path.map((cell, i) => {
           const [vr, vc] = view(cell.r, cell.c);
           const centre = cellCentre(m, vr, vc);
-          const dot = m.cell * 0.2;
+          const dotW = m.x.cell * 0.2;
+          const dotH = m.y.cell * 0.2;
           return (
             <div
               key={`path-${cell.r}-${cell.c}`}
               className="path-node"
               style={{
-                left: `${centre.x - dot / 2}%`,
-                top: `${centre.y - dot / 2}%`,
-                width: `${dot}%`,
-                height: `${dot}%`,
+                left: `${centre.x - dotW / 2}%`,
+                top: `${centre.y - dotH / 2}%`,
+                width: `${dotW}%`,
+                height: `${dotH}%`,
                 animationDelay: `${i * 24}ms`,
               }}
             />
@@ -251,17 +338,32 @@ function BoardImpl({
         })}
 
         {mode === 'wall' && canAct
-          ? renderSlots(m, size, orientation, legalWallSlots, viewWallSlot(flipped, size), handleSlot)
+          ? renderSlots(
+              m,
+              rows,
+              size,
+              orientation,
+              legalWallSlots,
+              viewWallSlot(flipped, rows, size),
+              handleSlot,
+            )
           : null}
 
         {game.walls.map((w, i) => {
           const v = viewWall(w);
           const isLatest = i === game.walls.length - 1;
+          const owner = wallOwners[i];
           return (
             <div
               key={`wall-${w.r}-${w.c}-${w.o}`}
               className={`wall${w.o === 1 ? ' is-v' : ''}${isLatest ? ' is-latest' : ''}`}
-              style={{ ...wallBox(m, v.r, v.c, w.o), animationDelay: `${Math.min(i, 6) * 10}ms` }}
+              style={{
+                ...wallBox(m, v.r, v.c, w.o),
+                animationDelay: `${Math.min(i, 6) * 10}ms`,
+                ...(owner === undefined
+                  ? null
+                  : ({ '--wall-color': seatDeepVar(owner) } as React.CSSProperties)),
+              }}
             />
           );
         })}
@@ -293,7 +395,7 @@ function BoardImpl({
                     ...cellBox(m, vr, vc),
                     ...(armed ? { transform: 'scale(1.08)' } : null),
                   }}
-                  aria-label={`${String.fromCharCode(97 + to.c)}${size - to.r}`}
+                  aria-label={`${String.fromCharCode(97 + to.c)}${rows - to.r}`}
                   onClick={() => handleStep(to)}
                 />
               );
@@ -338,7 +440,7 @@ function BoardImpl({
                 <span
                   key={floatingEmote.id}
                   className="emote-float"
-                  style={{ left: `${centre.x}%`, top: `${centre.y - m.cell}%` }}
+                  style={{ left: `${centre.x}%`, top: `${centre.y - m.y.cell}%` }}
                 >
                   {floatingEmote.emoji}
                 </span>
@@ -350,22 +452,23 @@ function BoardImpl({
   );
 }
 
-function viewWallSlot(flipped: boolean, size: number) {
+function viewWallSlot(flipped: boolean, rows: number, cols: number) {
   return (r: number, c: number): [number, number] =>
-    flipped ? [size - 2 - r, size - 2 - c] : [r, c];
+    flipped ? [rows - 2 - r, cols - 2 - c] : [r, c];
 }
 
 function renderSlots(
   m: BoardMetrics,
-  size: number,
+  rows: number,
+  cols: number,
   orientation: WallOrientation,
   legal: Set<string>,
   view: (r: number, c: number) => [number, number],
   onSlot: (r: number, c: number) => void,
 ): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
-  for (let r = 0; r <= size - 2; r++) {
-    for (let c = 0; c <= size - 2; c++) {
+  for (let r = 0; r <= rows - 2; r++) {
+    for (let c = 0; c <= cols - 2; c++) {
       const available = legal.has(`${r}:${c}`);
       const [vr, vc] = view(r, c);
       nodes.push(
@@ -377,7 +480,7 @@ function renderSlots(
           }`}
           style={slotBox(m, vr, vc, orientation)}
           disabled={!available}
-          aria-label={`${String.fromCharCode(97 + c)}${size - r - 1}${orientation === 0 ? 'h' : 'v'}`}
+          aria-label={`${String.fromCharCode(97 + c)}${rows - r - 1}${orientation === 0 ? 'h' : 'v'}`}
           onClick={() => onSlot(r, c)}
         />,
       );

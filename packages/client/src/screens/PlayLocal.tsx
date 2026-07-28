@@ -9,6 +9,7 @@ import {
   transcript,
   type BotLevel,
   type GameConfig,
+  type GameMode,
   type Move,
 } from '@wallrush/shared';
 
@@ -26,13 +27,17 @@ import { sounds } from '../state/sound.js';
 
 export function PlayLocal({
   botLevel,
-  seats: seatCount = 2,
+  seats: requestedSeats = 2,
+  mode = 'duel',
 }: {
   /** null means hot-seat: humans sharing the device. */
   botLevel: BotLevel | null;
   /** 2 or 4 seats. With a bot level, every other seat is filled by a bot. */
   seats?: 2 | 4;
+  mode?: GameMode;
 }): ReactNode {
+  // A race is a two-lane track; there is no four-player version of it.
+  const seatCount = mode === 'race' ? 2 : requestedSeats;
   const { t } = useI18n();
   const { go, back } = useRouter();
   const { profile } = useSession();
@@ -46,12 +51,13 @@ export function PlayLocal({
     () =>
       cloneConfig({
         size: DEFAULT_CONFIG.size,
+        mode,
         players: seatCount,
         clockMs: 0,
         incrementMs: 0,
         moveTimeoutMs: 0,
       }),
-    [seatCount],
+    [seatCount, mode],
   );
 
   // Seat 0 is always the person holding the device. In a bot game every other
@@ -99,7 +105,7 @@ export function PlayLocal({
     if (!botLevel || !profile || profile.guest) return;
     const moves = local.game.history.map((h) => h.move);
     if (local.game.ending !== 'goal' || moves.length === 0) return;
-    const text = transcript(moves, local.game.size);
+    const text = transcript(moves, local.game.rows);
     if (reported.current === text) return;
     reported.current = text;
     void api
@@ -144,7 +150,11 @@ export function PlayLocal({
   );
 
   // In hot-seat mode the board always belongs to whoever is on turn.
-  const mySeat = botLevel ? 0 : local.game.turn;
+  // In a bot game the device belongs to seat 0. In hot-seat the board only
+  // turns round if the players asked for it; otherwise it stays put and the
+  // far side gets its own controls.
+  const mySeat = botLevel ? 0 : settings.rotateBoard ? local.game.turn : 0;
+  const sharedDevice = !botLevel && !settings.rotateBoard;
 
   return (
     <div className="stack">
@@ -171,6 +181,7 @@ export function PlayLocal({
         game={local.game}
         seats={seats}
         mySeat={mySeat}
+        sharedDevice={sharedDevice}
         controllingSeat={local.controllingSeat}
         thinking={local.thinking}
         clockRunning={false}
@@ -238,7 +249,7 @@ export function PlayLocal({
                             }
                           : undefined
                       }
-                      onClick={() => go({ name: 'play-bot', level, seats: seatCount })}
+                      onClick={() => go({ name: 'play-bot', level, seats: seatCount, mode })}
                     >
                       {t.bot[level]}
                     </button>

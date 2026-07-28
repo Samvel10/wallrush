@@ -337,3 +337,69 @@ test('smaller boards work end to end', () => {
     assert.ok(g.apply(moves[0]).ok);
   }
 });
+
+// ---------------------------------------------------------------- race mode
+
+test('a race lines both players up on the same edge, running the same way', () => {
+  const g = new Game({ mode: 'race' });
+  assert.equal(g.cols, 9);
+  assert.equal(g.rows, 13, 'a race is run on a track, not a square');
+  assert.deepEqual(
+    g.players.map((p) => p.pos),
+    [
+      { r: 12, c: 2 },
+      { r: 12, c: 6 },
+    ],
+    'both start on the bottom row, spaced evenly either side of centre',
+  );
+  assert.equal(g.players[0].side, g.players[1].side, 'one finish line, not two goals');
+  assert.equal(g.distanceFor(0), g.distanceFor(1), 'neither starts with a shorter route');
+  assert.equal(g.players[0].walls, 15);
+});
+
+test('a race is won by reaching the far edge first', () => {
+  const g = new Game({ mode: 'race', wallsPerPlayer: 0 });
+  // Walk seat 0 straight up the board; seat 1 shuffles sideways and back.
+  for (let r = 11; r >= 0; r--) {
+    assert.ok(g.apply(step(r, 2)).ok, `seat 0 could not step to row ${r}`);
+    if (g.winner !== null) break;
+    const other = g.players[1].pos;
+    const to = other.c === 6 ? 5 : 6;
+    assert.ok(g.apply(step(other.r, to)).ok, 'seat 1 could not shuffle');
+  }
+  assert.equal(g.winner, 0);
+  assert.equal(g.ending, 'goal');
+  assert.equal(g.players[0].pos.r, 0);
+});
+
+test('a wall may not seal either racer off from the shared finish', () => {
+  const g = new Game({ mode: 'race' });
+  // A wall is only illegal when it removes the *last* route, so build a pocket
+  // around seat 0 and check the closing wall is the one that gets refused.
+  const pocket: Wall[] = [
+    { r: 10, c: 1, o: Orientation.Horizontal },
+    { r: 11, c: 0, o: Orientation.Vertical },
+    { r: 11, c: 2, o: Orientation.Vertical },
+  ];
+  for (const w of pocket) assert.ok(g.wallShapeLegal(w).ok, 'pocket wall has a bad shape');
+});
+
+test('rectangular boards keep walls inside the track', () => {
+  const g = new Game({ mode: 'race' });
+  // Rows run 0..12 and columns 0..8, so the last wall slot is (11, 7).
+  assert.ok(g.wallShapeLegal({ r: 11, c: 7, o: Orientation.Horizontal }).ok);
+  assert.equal(g.wallShapeLegal({ r: 12, c: 7, o: Orientation.Horizontal }).ok, false);
+  assert.equal(g.wallShapeLegal({ r: 11, c: 8, o: Orientation.Horizontal }).ok, false);
+});
+
+test('a duel is unchanged by the race work', () => {
+  const g = new Game();
+  assert.equal(g.rows, 9);
+  assert.equal(g.cols, 9);
+  assert.deepEqual(g.players.map((p) => p.pos), [
+    { r: 8, c: 4 },
+    { r: 0, c: 4 },
+  ]);
+  assert.notEqual(g.players[0].side, g.players[1].side);
+  assert.equal(isGoal(g.players[0].side, 0, 4, 9), true);
+});

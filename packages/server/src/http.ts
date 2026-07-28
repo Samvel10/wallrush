@@ -14,6 +14,7 @@ import { extname, join, normalize, resolve, sep } from 'node:path';
 import {
   BOT_LEVELS,
   BOT_RATING,
+  rowsFor,
   Game,
   cloneConfig,
   parseTranscript,
@@ -379,7 +380,7 @@ async function handleApi(
       return;
     }
 
-    const moves = parseTranscript(body.transcript, config.size);
+    const moves = parseTranscript(body.transcript, rowsFor(config), config.size);
     if (moves.length === 0 || moves.length > 400) {
       sendJson(res, 400, { error: 'bad-transcript' }, origin);
       return;

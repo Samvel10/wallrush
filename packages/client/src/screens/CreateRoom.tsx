@@ -2,7 +2,12 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { defaultWallsFor, type BoardSize, type GameConfig } from '@wallrush/shared';
+import {
+  defaultWallsFor,
+  type BoardSize,
+  type GameConfig,
+  type GameMode,
+} from '@wallrush/shared';
 
 import { BackButton, Switch, useToast } from '../components/ui.js';
 import { useI18n } from '../i18n/index.js';
@@ -31,13 +36,14 @@ export function CreateRoom(): ReactNode {
   const [name, setName] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private'>('private');
   const [rated, setRated] = useState(true);
+  const [mode, setMode] = useState<GameMode>('duel');
   const [players, setPlayers] = useState<2 | 4>(2);
   const [size, setSize] = useState<BoardSize>(9);
   const [walls, setWalls] = useState(10);
   const [preset, setPreset] = useState<Preset>(PRESETS[1]);
   const [creating, setCreating] = useState(false);
 
-  useEffect(() => setWalls(defaultWallsFor(players, size)), [players, size]);
+  useEffect(() => setWalls(defaultWallsFor(players, size, mode)), [players, size, mode]);
 
   useEffect(() => {
     connection.connect();
@@ -69,6 +75,7 @@ export function CreateRoom(): ReactNode {
   const create = () => {
     const config: Partial<GameConfig> = {
       size,
+      mode,
       players,
       wallsPerPlayer: walls,
       clockMs: preset.clockMs,
@@ -104,6 +111,31 @@ export function CreateRoom(): ReactNode {
         </div>
 
         <div className="field">
+          <span className="field-label">{t.setup.mode}</span>
+          <div className="segmented segmented-block">
+            <button
+              type="button"
+              className="segmented-item"
+              aria-pressed={mode === 'duel'}
+              onClick={() => setMode('duel')}
+            >
+              <span className="seg-emoji">⚔️</span> {t.setup.duel}
+            </button>
+            <button
+              type="button"
+              className="segmented-item"
+              aria-pressed={mode === 'race'}
+              onClick={() => setMode('race')}
+            >
+              <span className="seg-emoji">🏁</span> {t.setup.race}
+            </button>
+          </div>
+          <p className="tiny faint" style={{ margin: 0 }}>
+            {mode === 'race' ? t.setup.raceHint : t.setup.duelHint}
+          </p>
+        </div>
+
+        <div className="field">
           <span className="field-label">{t.setup.presets}</span>
           <div className="segmented segmented-block">
             {PRESETS.map((p) => (
@@ -123,7 +155,7 @@ export function CreateRoom(): ReactNode {
           </div>
         </div>
 
-        <div className="field">
+        <div className="field" hidden={mode === 'race'}>
           <span className="field-label">{t.setup.players}</span>
           <div className="segmented segmented-block">
             <button
@@ -145,7 +177,7 @@ export function CreateRoom(): ReactNode {
           </div>
         </div>
 
-        <div className="field">
+        <div className="field" hidden={mode === 'race'}>
           <span className="field-label">{t.setup.boardSize}</span>
           <div className="segmented segmented-block">
             {SIZES.map((s) => (
@@ -170,7 +202,7 @@ export function CreateRoom(): ReactNode {
             id="walls"
             type="range"
             min={0}
-            max={size >= 9 ? 14 : 8}
+            max={mode === 'race' ? 20 : size >= 9 ? 14 : 8}
             value={walls}
             onChange={(e) => setWalls(Number(e.target.value))}
             style={{ width: '100%', accentColor: 'var(--accent)' }}

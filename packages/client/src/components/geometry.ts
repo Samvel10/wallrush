@@ -1,20 +1,34 @@
 /**
  * Board geometry.
  *
- * Every element is placed with percentages inside a square container, so the
- * board is resolution independent: no canvas, no resize listeners, no layout
- * thrash. One "unit" is a cell; the gap between cells is a fraction of a cell
- * and is exactly where walls live.
+ * Every element is placed with percentages inside a container whose aspect
+ * ratio matches the board, so it is resolution independent: no canvas, no
+ * resize listeners, no layout thrash. One "unit" is a cell; the gap between
+ * cells is a fraction of a cell and is exactly where walls live.
+ *
+ * The two axes are measured separately because a board need not be square —
+ * a race is run on a track that is taller than it is wide — and a percentage
+ * of the width is not the same length as a percentage of the height.
  */
 
-export interface BoardMetrics {
-  /** Width/height of one cell, in percent of the board. */
+export interface Axis {
+  /** Length of one cell along this axis, in percent of the board. */
   cell: number;
-  /** Width/height of the gap between two cells, in percent of the board. */
+  /** Length of the gap between two cells, in percent of the board. */
   gap: number;
   /** Distance from one cell's start to the next cell's start. */
   pitch: number;
-  size: number;
+  /** How many cells this axis has. */
+  count: number;
+}
+
+export interface BoardMetrics {
+  /** Horizontal axis, measured in percent of the board's width. */
+  x: Axis;
+  /** Vertical axis, measured in percent of the board's height. */
+  y: Axis;
+  rows: number;
+  cols: number;
 }
 
 export const GAP_RATIO = 0.2;
@@ -34,11 +48,15 @@ export const SLOT_GROW = 0.42;
  */
 export const SLOT_THICKNESS_PCT = (GAP_RATIO / (GAP_RATIO + SLOT_GROW)) * 100;
 
-export function metricsFor(size: number, gapRatio = GAP_RATIO): BoardMetrics {
-  const units = size + (size - 1) * gapRatio;
+function axisFor(count: number, gapRatio: number): Axis {
+  const units = count + (count - 1) * gapRatio;
   const cell = 100 / units;
   const gap = cell * gapRatio;
-  return { cell, gap, pitch: cell + gap, size };
+  return { cell, gap, pitch: cell + gap, count };
+}
+
+export function metricsFor(rows: number, cols = rows, gapRatio = GAP_RATIO): BoardMetrics {
+  return { x: axisFor(cols, gapRatio), y: axisFor(rows, gapRatio), rows, cols };
 }
 
 export interface Box {
@@ -50,33 +68,33 @@ export interface Box {
 
 export function cellBox(m: BoardMetrics, r: number, c: number): Box {
   return {
-    left: `${c * m.pitch}%`,
-    top: `${r * m.pitch}%`,
-    width: `${m.cell}%`,
-    height: `${m.cell}%`,
+    left: `${c * m.x.pitch}%`,
+    top: `${r * m.y.pitch}%`,
+    width: `${m.x.cell}%`,
+    height: `${m.y.cell}%`,
   };
 }
 
 /** Centre of a cell, as percentages — handy for pawns and floating effects. */
 export function cellCentre(m: BoardMetrics, r: number, c: number): { x: number; y: number } {
-  return { x: c * m.pitch + m.cell / 2, y: r * m.pitch + m.cell / 2 };
+  return { x: c * m.x.pitch + m.x.cell / 2, y: r * m.y.pitch + m.y.cell / 2 };
 }
 
 /** The visual footprint of a wall at intersection (r, c). */
 export function wallBox(m: BoardMetrics, r: number, c: number, orientation: 0 | 1): Box {
   if (orientation === 0) {
     return {
-      left: `${c * m.pitch}%`,
-      top: `${r * m.pitch + m.cell}%`,
-      width: `${2 * m.cell + m.gap}%`,
-      height: `${m.gap}%`,
+      left: `${c * m.x.pitch}%`,
+      top: `${r * m.y.pitch + m.y.cell}%`,
+      width: `${2 * m.x.cell + m.x.gap}%`,
+      height: `${m.y.gap}%`,
     };
   }
   return {
-    left: `${c * m.pitch + m.cell}%`,
-    top: `${r * m.pitch}%`,
-    width: `${m.gap}%`,
-    height: `${2 * m.cell + m.gap}%`,
+    left: `${c * m.x.pitch + m.x.cell}%`,
+    top: `${r * m.y.pitch}%`,
+    width: `${m.x.gap}%`,
+    height: `${2 * m.y.cell + m.y.gap}%`,
   };
 }
 
@@ -87,20 +105,21 @@ export function wallBox(m: BoardMetrics, r: number, c: number, orientation: 0 | 
  * visible bar stay slim inside it.
  */
 export function slotBox(m: BoardMetrics, r: number, c: number, orientation: 0 | 1): Box {
-  const grow = m.cell * SLOT_GROW;
   if (orientation === 0) {
+    const grow = m.y.cell * SLOT_GROW;
     return {
-      left: `${c * m.pitch}%`,
-      top: `${r * m.pitch + m.cell - grow / 2}%`,
-      width: `${2 * m.cell + m.gap}%`,
-      height: `${m.gap + grow}%`,
+      left: `${c * m.x.pitch}%`,
+      top: `${r * m.y.pitch + m.y.cell - grow / 2}%`,
+      width: `${2 * m.x.cell + m.x.gap}%`,
+      height: `${m.y.gap + grow}%`,
     };
   }
+  const grow = m.x.cell * SLOT_GROW;
   return {
-    left: `${c * m.pitch + m.cell - grow / 2}%`,
-    top: `${r * m.pitch}%`,
-    width: `${m.gap + grow}%`,
-    height: `${2 * m.cell + m.gap}%`,
+    left: `${c * m.x.pitch + m.x.cell - grow / 2}%`,
+    top: `${r * m.y.pitch}%`,
+    width: `${m.x.gap + grow}%`,
+    height: `${2 * m.y.cell + m.y.gap}%`,
   };
 }
 
@@ -111,17 +130,18 @@ export function nearestSlot(
   yPct: number,
   orientation: 0 | 1,
 ): { r: number; c: number } | null {
-  const max = m.size - 2;
+  const maxRow = m.rows - 2;
+  const maxCol = m.cols - 2;
   if (orientation === 0) {
     // Horizontal walls sit on a row boundary and span two columns.
-    const r = Math.round(yPct / m.pitch) - 1;
-    const c = Math.round(xPct / m.pitch - 0.5);
-    if (r < 0 || c < 0 || r > max || c > max) return null;
+    const r = Math.round(yPct / m.y.pitch) - 1;
+    const c = Math.round(xPct / m.x.pitch - 0.5);
+    if (r < 0 || c < 0 || r > maxRow || c > maxCol) return null;
     return { r, c };
   }
-  const c = Math.round(xPct / m.pitch) - 1;
-  const r = Math.round(yPct / m.pitch - 0.5);
-  if (r < 0 || c < 0 || r > max || c > max) return null;
+  const c = Math.round(xPct / m.x.pitch) - 1;
+  const r = Math.round(yPct / m.y.pitch - 0.5);
+  if (r < 0 || c < 0 || r > maxRow || c > maxCol) return null;
   return { r, c };
 }
 

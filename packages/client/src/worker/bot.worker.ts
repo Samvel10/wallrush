@@ -59,11 +59,19 @@ interface ThinkResponse {
 
 const bots = new Map<string, Bot>();
 
-function botFor(level: BotLevel, size: number, seats: number, seed: number): Bot {
-  const key = `${level}:${size}:${seats}`;
+function botFor(
+  level: BotLevel,
+  size: number,
+  seats: number,
+  seed: number,
+  rows: number,
+): Bot {
+  // The board shape is part of the identity: a bot built for a square duel
+  // has the wrong Zobrist tables for a race track.
+  const key = `${level}:${rows}x${size}:${seats}`;
   let bot = bots.get(key);
   if (!bot) {
-    bot = new Bot(level, size, seats, seed);
+    bot = new Bot(level, size, seats, seed, rows);
     bots.set(key, bot);
   }
   return bot;
@@ -74,7 +82,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   const started = Date.now();
   try {
     const game = Game.fromState(req.state);
-    const bot = botFor(req.level, game.size, game.config.players, req.seed);
+    const bot = botFor(req.level, game.cols, game.config.players, req.seed, game.rows);
 
     if (req.kind === 'analyse') {
       const a = bot.analyse(game, req.played, req.timeMs);

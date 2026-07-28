@@ -331,6 +331,12 @@ export function ProfileScreen(): ReactNode {
           label={t.settings.showPath}
         />
         <Switch
+          checked={settings.rotateBoard}
+          onChange={(v) => set('rotateBoard', v)}
+          label={t.profile.rotateBoard}
+          hint={t.profile.rotateBoardHint}
+        />
+        <Switch
           checked={settings.confirmMoves}
           onChange={(v) => set('confirmMoves', v)}
           label={t.settings.confirmMoves}

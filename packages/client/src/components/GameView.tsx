@@ -28,6 +28,12 @@ export interface GameViewProps {
   game: Game;
   seats: SeatView[];
   mySeat: number | null;
+  /**
+   * Two people sharing one screen, sitting across from each other. The board
+   * stays put and the player on the far side gets a second, upside-down
+   * toolbar above it, so both of them reach their own controls.
+   */
+  sharedDevice?: boolean;
   /** Seat whose input is accepted right now (null = board locked). */
   controllingSeat: number | null;
   thinking?: boolean;
@@ -46,6 +52,7 @@ export function GameView({
   game,
   seats,
   mySeat,
+  sharedDevice = false,
   controllingSeat,
   thinking = false,
   clockRunning = true,
@@ -61,6 +68,8 @@ export function GameView({
   const { settings } = useSettings();
   const [mode, setMode] = useState<'move' | 'wall'>('move');
   const [orientation, setOrientation] = useState<0 | 1>(0);
+  /** Set while a wall is being carried from the tray to the board. */
+  const [dragging, setDragging] = useState<0 | 1 | null>(null);
   const [showPath, setShowPath] = useState(settings.showPath);
 
   useEffect(() => setShowPath(settings.showPath), [settings.showPath]);
@@ -76,6 +85,10 @@ export function GameView({
 
   // Show the board from the local player's side of the table.
   const flipped = mySeat === 1 || mySeat === 3;
+
+  // On a shared device the board never turns, so whoever is not seat 0 is
+  // sitting on the other side of it.
+  const farSide = sharedDevice && controllingSeat !== null && controllingSeat !== 0;
 
   /**
    * Arrow keys move the pawn in the direction you see on screen — which is not
@@ -165,8 +178,8 @@ export function GameView({
   );
 
   const hintLabel = useMemo(
-    () => (hintMove ? moveName(hintMove, game.size) : null),
-    [hintMove, game.size],
+    () => (hintMove ? moveName(hintMove, game.rows) : null),
+    [hintMove, game.rows],
   );
 
   const opponents = seats.filter((s) => s.index !== mySeat);
@@ -187,6 +200,33 @@ export function GameView({
           ))}
         </div>
 
+        {/* The far player's controls, the right way up for their side. */}
+        {sharedDevice && farSide ? (
+          <div className="game-toolbar is-mirrored">
+            <WallTray
+              mode={mode}
+              orientation={orientation}
+              wallsLeft={wallsLeft}
+              disabled={controllingSeat === null}
+              onMode={setMode}
+              onOrientation={setOrientation}
+              onPickUp={setDragging}
+            />
+            <button
+              type="button"
+              className="btn btn-sm"
+              aria-pressed={showPath}
+              onClick={() => setShowPath((v) => !v)}
+              title={showPath ? t.game.hidePath : t.game.showPath}
+            >
+              🧭
+              <span className="visually-hidden">
+                {showPath ? t.game.hidePath : t.game.showPath}
+              </span>
+            </button>
+          </div>
+        ) : null}
+
         {banner ?? <TurnBanner game={game} mySeat={mySeat} thinking={thinking} seats={seats} />}
 
         <Board
@@ -200,6 +240,8 @@ export function GameView({
           showCoordinates={settings.showCoordinates}
           showPath={showPath}
           confirmMoves={settings.confirmMoves}
+          dragOrientation={dragging}
+          onDragFinish={() => setDragging(null)}
           lastMove={lastMove}
           floatingEmote={floatingEmote}
           onStep={handleStep}
@@ -208,7 +250,7 @@ export function GameView({
 
         {mine ? <SeatBar seat={mine} game={game} running={clockRunning} /> : null}
 
-        <div className="game-toolbar">
+        <div className={`game-toolbar${sharedDevice && farSide ? ' is-dimmed' : ''}`}>
           <WallTray
             mode={mode}
             orientation={orientation}
@@ -216,6 +258,7 @@ export function GameView({
             disabled={controllingSeat === null}
             onMode={setMode}
             onOrientation={setOrientation}
+            onPickUp={setDragging}
           />
           <button
             type="button"
@@ -261,7 +304,7 @@ export function MoveLog({
     if (!rows[index]) {
       rows[index] = { n: index + 1, cells: Array.from({ length: seatCount }, () => null) };
     }
-    rows[index].cells[i % seatCount] = { name: moveName(entry.move, game.size), ply: i };
+    rows[index].cells[i % seatCount] = { name: moveName(entry.move, game.rows), ply: i };
   });
 
   return (

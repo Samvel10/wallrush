@@ -41,6 +41,20 @@ export interface BotProfile {
   blunder: number;
   /** How far down the ranked list a blunder may reach. */
   blunderSpread: number;
+  /**
+   * The most a deliberate mistake may cost, in score units (a step of race
+   * advantage is ~110).
+   *
+   * Rank alone is the wrong bound. In an open position the second-best move
+   * is a shade worse; inside a corridor somebody has just walled off, it is a
+   * step *backwards*. A weak player misses the good plan — they do not turn
+   * round and walk away from the goal — so the mistake is bounded by what it
+   * costs, and a level with nothing acceptable to play just plays the best.
+   *
+   * No level is allowed a full step (110), which is what makes even the
+   * weakest bot look like it is trying.
+   */
+  blunderMargin: number;
   /** Probability of skipping wall moves entirely on a given turn. */
   wallShyness: number;
   /** Minimum visible "thinking" time, so the bot does not feel robotic. */
@@ -56,6 +70,7 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
     innerWalls: 0,
     blunder: 0.55,
     blunderSpread: 6,
+    blunderMargin: 100,
     wallShyness: 0.75,
     minThinkMs: 420,
   },
@@ -67,6 +82,7 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
     innerWalls: 3,
     blunder: 0.3,
     blunderSpread: 4,
+    blunderMargin: 100,
     wallShyness: 0.45,
     minThinkMs: 380,
   },
@@ -78,6 +94,7 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
     innerWalls: 6,
     blunder: 0.12,
     blunderSpread: 3,
+    blunderMargin: 95,
     wallShyness: 0.15,
     minThinkMs: 340,
   },
@@ -94,6 +111,7 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
     // both search well, but only one of them plays the best move every time.
     blunder: 0.045,
     blunderSpread: 2,
+    blunderMargin: 55,
     wallShyness: 0.05,
     minThinkMs: 300,
   },
@@ -108,6 +126,7 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
     innerWalls: 16,
     blunder: 0.015,
     blunderSpread: 2,
+    blunderMargin: 20,
     wallShyness: 0,
     minThinkMs: 260,
   },
@@ -122,6 +141,7 @@ export const BOT_PROFILES: Record<BotLevel, BotProfile> = {
     innerWalls: 20,
     blunder: 0,
     blunderSpread: 1,
+    blunderMargin: 0,
     wallShyness: 0,
     minThinkMs: 200,
   },
@@ -164,13 +184,13 @@ interface ZobristTables {
 
 const zobristCache = new Map<string, ZobristTables>();
 
-function zobristFor(size: number, seats: number): ZobristTables {
-  const key = `${size}:${seats}`;
+function zobristFor(rows: number, cols: number, seats: number): ZobristTables {
+  const key = `${rows}x${cols}:${seats}`;
   const cached = zobristCache.get(key);
   if (cached) return cached;
-  const rng = makeRng(RNG_SEED ^ (size * 131 + seats));
-  const cells = size * size;
-  const slots = (size - 1) * (size - 1);
+  const rng = makeRng(RNG_SEED ^ (rows * 1301 + cols * 131 + seats));
+  const cells = rows * cols;
+  const slots = (rows - 1) * (cols - 1);
   const maxHand = 21;
   const tables: ZobristTables = {
     pawn: new Uint32Array(seats * cells),
@@ -266,9 +286,10 @@ export class Bot {
     private size = 9,
     seats = 2,
     seed = 0x2545f491,
+    rows?: number,
   ) {
     this.profile = typeof level === 'string' ? BOT_PROFILES[level] : level;
-    this.z = zobristFor(size, seats);
+    this.z = zobristFor(rows ?? size, size, seats);
     this.rng = makeRng(seed >>> 0 || 1);
   }
 
@@ -281,12 +302,12 @@ export class Bot {
   private hashOf(g: Game): number {
     let h = this.z.turn[g.turn] >>> 0;
     for (const p of g.players) {
-      h = (h ^ this.z.pawn[p.index * this.z.cells + p.pos.r * g.size + p.pos.c]) >>> 0;
+      h = (h ^ this.z.pawn[p.index * this.z.cells + p.pos.r * g.cols + p.pos.c]) >>> 0;
       const hand = Math.min(p.walls, this.z.maxHand - 1);
       h = (h ^ this.z.hand[p.index * this.z.maxHand + hand]) >>> 0;
     }
     for (const w of g.walls) {
-      h = (h ^ this.z.wall[(w.r * (g.size - 1) + w.c) * 2 + w.o]) >>> 0;
+      h = (h ^ this.z.wall[(w.r * (g.cols - 1) + w.c) * 2 + w.o]) >>> 0;
     }
     return h >>> 0;
   }
@@ -331,7 +352,7 @@ export class Bot {
     score -= myDist * 3;
 
     // Mild centre preference: central files have more escape routes.
-    const mid = (g.size - 1) / 2;
+    const mid = (g.cols - 1) / 2;
     score -= Math.abs(myPlayer.pos.c - mid) * 1.2;
 
     // Having the move is worth roughly half a step.
@@ -347,13 +368,14 @@ export class Bot {
    */
   private relevantWalls(g: Game, limit: number, me: PlayerIndex): Wall[] {
     if (limit <= 0) return [];
-    const n = g.size;
-    const interest = new Uint8Array((n - 1) * (n - 1));
+    const rows = g.rows;
+    const cols = g.cols;
+    const interest = new Uint8Array((rows - 1) * (cols - 1));
     const mark = (r: number, c: number, radius: number, weight: number) => {
       for (let rr = r - radius; rr <= r + radius; rr++) {
         for (let cc = c - radius; cc <= c + radius; cc++) {
-          if (rr < 0 || cc < 0 || rr > n - 2 || cc > n - 2) continue;
-          const i = rr * (n - 1) + cc;
+          if (rr < 0 || cc < 0 || rr > rows - 2 || cc > cols - 2) continue;
+          const i = rr * (cols - 1) + cc;
           interest[i] = Math.min(255, interest[i] + weight);
         }
       }
@@ -368,9 +390,9 @@ export class Bot {
     }
 
     const scored: { w: Wall; s: number }[] = [];
-    for (let r = 0; r <= n - 2; r++) {
-      for (let c = 0; c <= n - 2; c++) {
-        const base = interest[r * (n - 1) + c];
+    for (let r = 0; r <= rows - 2; r++) {
+      for (let c = 0; c <= cols - 2; c++) {
+        const base = interest[r * (cols - 1) + c];
         if (base === 0) continue;
         for (let o = 0 as 0 | 1; o <= 1; o = (o + 1) as 0 | 1) {
           const w: Wall = { r, c, o };
@@ -400,7 +422,7 @@ export class Bot {
     const scored: { m: Move; s: number }[] = [];
 
     for (const to of g.pawnMoves(seat)) {
-      const d = isGoal(player.side, to.r, to.c, g.size)
+      const d = isGoal(player.side, to.r, to.c, g.rows, g.cols)
         ? 0
         : g.distanceToGoal(to.r, to.c, player.side);
       const gain = d < 0 ? -50 : myDist - d;
@@ -636,9 +658,19 @@ export class Bot {
     let chosenIndex = 0;
     if (!strict && profile.blunder > 0 && ranking.length > 1) {
       if (this.random() < profile.blunder) {
-        const spread = Math.min(profile.blunderSpread, ranking.length - 1);
-        chosenIndex = 1 + Math.floor(this.random() * spread);
-        if (chosenIndex >= ranking.length) chosenIndex = ranking.length - 1;
+        const best = ranking[0].score;
+        // Never throw away a win, and never pick something that loses on the
+        // spot: a weak opponent should be beatable, not broken.
+        if (best < WIN - 1000) {
+          const floor = best - profile.blunderMargin;
+          const spread = Math.min(profile.blunderSpread, ranking.length - 1);
+          let last = 0;
+          for (let i = 1; i <= spread; i++) {
+            if (ranking[i].score < floor || ranking[i].score <= -WIN + 1000) break;
+            last = i;
+          }
+          if (last > 0) chosenIndex = 1 + Math.floor(this.random() * last);
+        }
       }
     }
 
@@ -751,6 +783,6 @@ function movesEqual(a: Move, b: Move): boolean {
 
 /** Convenience helper used by the UI hint button. */
 export function bestMoveFor(game: Game, level: BotLevel = 'expert'): SearchResult {
-  const bot = new Bot(level, game.size, game.config.players);
+  const bot = new Bot(level, game.size, game.config.players, undefined, game.rows);
   return bot.choose(game, { strict: true });
 }

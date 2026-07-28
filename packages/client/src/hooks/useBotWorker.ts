@@ -68,7 +68,7 @@ export function useBotWorker(): {
         const worker = workerRef.current;
         const seed = (Math.random() * 2 ** 31) | 0;
         if (!worker) {
-          const bot = new Bot(level, game.size, game.config.players, seed);
+          const bot = new Bot(level, game.cols, game.config.players, seed, game.rows);
           const result = bot.choose(game, opts);
           resolve(result);
           return;
@@ -95,7 +95,7 @@ export function useBotWorker(): {
         const worker = workerRef.current;
         const seed = 0x51ed270b;
         if (!worker) {
-          const bot = new Bot(level, game.size, game.config.players, seed);
+          const bot = new Bot(level, game.cols, game.config.players, seed, game.rows);
           const a = bot.analyse(game, played, timeMs);
           resolve({
             move: a.best,

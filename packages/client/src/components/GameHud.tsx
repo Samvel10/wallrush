@@ -105,6 +105,7 @@ export function WallTray({
   disabled,
   onMode,
   onOrientation,
+  onPickUp,
 }: {
   mode: 'move' | 'wall';
   orientation: 0 | 1;
@@ -112,6 +113,8 @@ export function WallTray({
   disabled: boolean;
   onMode(mode: 'move' | 'wall'): void;
   onOrientation(o: 0 | 1): void;
+  /** Called when a wall is picked up out of the tray to be carried onto the board. */
+  onPickUp?(o: 0 | 1): void;
 }): ReactNode {
   const { t } = useI18n();
   const noWalls = wallsLeft <= 0;
@@ -142,6 +145,13 @@ export function WallTray({
           onMode('wall');
           onOrientation(0);
         }}
+        onPointerDown={(e) => {
+          // Only a real drag: a click still selects the orientation.
+          if (disabled || noWalls || e.button !== 0) return;
+          onMode('wall');
+          onOrientation(0);
+          onPickUp?.(0);
+        }}
         disabled={disabled || noWalls}
         title={t.game.horizontal}
       >
@@ -155,6 +165,13 @@ export function WallTray({
         onClick={() => {
           onMode('wall');
           onOrientation(1);
+        }}
+        onPointerDown={(e) => {
+          // Only a real drag: a click still selects the orientation.
+          if (disabled || noWalls || e.button !== 0) return;
+          onMode('wall');
+          onOrientation(1);
+          onPickUp?.(1);
         }}
         disabled={disabled || noWalls}
         title={t.game.vertical}

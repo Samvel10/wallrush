@@ -76,8 +76,25 @@ export interface WallMove {
 
 export type Move = StepMove | WallMove;
 
+/**
+ * How the pawns are placed and where they are running.
+ *
+ * `duel` is the classic: start on opposite sides, reach the side you came
+ * from being the one you did not. `race` starts both players on the *same*
+ * edge, side by side, running for one shared finish line — a foot race with
+ * walls rather than a duel, and it plays completely differently.
+ */
+export type GameMode = 'duel' | 'race';
+
 export interface GameConfig {
+  /** Board width in cells. */
   size: BoardSize;
+  /**
+   * Board height in cells. Defaults to `size` — a square board — because a
+   * duel is symmetric. A race wants a long track, so it is taller than wide.
+   */
+  rows?: number;
+  mode?: GameMode;
   /** 2 or 4 seats. */
   players: 2 | 4;
   /** Walls handed to each player at the start. */
@@ -126,6 +143,7 @@ export interface HistoryEntry {
 
 export const DEFAULT_CONFIG: GameConfig = {
   size: 9,
+  mode: 'duel',
   players: 2,
   wallsPerPlayer: 10,
   clockMs: 5 * 60 * 1000,

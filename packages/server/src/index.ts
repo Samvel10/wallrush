@@ -480,18 +480,31 @@ server.listen(config.port, config.host, () => {
   if (config.staticDir) process.stdout.write(`  serving client from ${config.staticDir}\n`);
 });
 
-function shutdown(signal: string): void {
-  process.stdout.write(`\nReceived ${signal}, shutting down…\n`);
+/**
+ * Drop every realtime connection and stop the background work.
+ *
+ * `server.close()` waits for open sockets, and an upgraded WebSocket never
+ * ends on its own — so without this the process (or a test run) simply hangs
+ * with every assertion already passed.
+ */
+export function closeRealtime(): void {
   clearInterval(heartbeat);
   clearInterval(housekeeping);
   for (const client of clients.values()) {
     try {
-      client.socket.close(1001, 'server-restart');
+      client.socket.terminate();
     } catch {
       /* ignore */
     }
   }
+  clients.clear();
+  byUser.clear();
   hub.dispose();
+}
+
+function shutdown(signal: string): void {
+  process.stdout.write(`\nReceived ${signal}, shutting down…\n`);
+  closeRealtime();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
 }

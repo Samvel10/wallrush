@@ -16,12 +16,14 @@ import {
   type ReactNode,
 } from 'react';
 
+import type { GameMode } from '@wallrush/shared';
+
 export type Route =
   | { name: 'home' }
   | { name: 'bots' }
-  | { name: 'local' }
-  | { name: 'play-bot'; level: string; seats?: 2 | 4 }
-  | { name: 'play-local' }
+  | { name: 'local'; mode?: GameMode }
+  | { name: 'play-bot'; level: string; seats?: 2 | 4; mode?: GameMode }
+  | { name: 'play-local'; mode?: GameMode }
   | { name: 'lobby' }
   | { name: 'create' }
   | { name: 'room'; code: string }
@@ -37,8 +39,13 @@ export function routeToHash(route: Route): string {
   switch (route.name) {
     case 'home':
       return '#/';
-    case 'play-bot':
-      return route.seats === 4 ? `#/bot/${route.level}/4` : `#/bot/${route.level}`;
+    case 'play-bot': {
+      const suffix = route.mode === 'race' ? '/race' : route.seats === 4 ? '/4' : '';
+      return `#/bot/${route.level}${suffix}`;
+    }
+    case 'local':
+    case 'play-local':
+      return route.mode === 'race' ? '#/local/race' : '#/local';
     case 'room':
       return `#/room/${route.code}`;
     case 'auth':
@@ -62,11 +69,12 @@ export function parseHash(hash: string): Route {
         name: 'play-bot',
         level: parts[1] ?? 'medium',
         seats: parts[2] === '4' ? 4 : 2,
+        mode: parts[2] === 'race' ? 'race' : 'duel',
       };
     case 'local':
-      return { name: 'local' };
+      return { name: 'local', mode: parts[1] === 'race' ? 'race' : 'duel' };
     case 'play-local':
-      return { name: 'play-local' };
+      return { name: 'play-local', mode: parts[1] === 'race' ? 'race' : 'duel' };
     case 'lobby':
       return { name: 'lobby' };
     case 'create':

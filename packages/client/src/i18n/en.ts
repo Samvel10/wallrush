@@ -71,6 +71,12 @@ export const en: Dictionary = {
 
   setup: {
     title: 'Game settings',
+    mode: 'Mode',
+    duel: 'Duel',
+    race: 'Race',
+    duelHint: "Duel: start on opposite sides, reach your opponent's side.",
+    raceHint:
+      'Race: both start at the bottom, side by side, running for one shared finish at the top. Longer board, more walls. First one there wins.',
     boardSize: 'Board size',
     players: 'Players',
     twoPlayers: '2 players',
@@ -216,6 +222,9 @@ export const en: Dictionary = {
     theme: 'Theme',
     themeLight: 'Light',
     themeDark: 'Dark',
+    rotateBoard: 'Turn the board round on a shared device',
+    rotateBoardHint:
+      'Off keeps the board still and gives the player opposite their own toolbar, the right way up for them',
     themeAuto: 'Automatic',
     save: 'Save',
     saved: 'Saved',

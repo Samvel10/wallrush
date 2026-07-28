@@ -49,7 +49,9 @@ export async function startServer(): Promise<TestServer> {
     async close() {
       // A failing test usually leaves its sockets open, and `close` waits for
       // every connection to end — so without this the suite hangs instead of
-      // reporting the failure.
+      // reporting the failure. An upgraded WebSocket outlives
+      // `closeAllConnections`, hence the explicit realtime teardown.
+      mod.closeRealtime();
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
       rmSync(dir, { recursive: true, force: true });

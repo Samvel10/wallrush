@@ -33,9 +33,12 @@ export function App(): ReactNode {
     connection.connect();
   }, []);
 
+  // `/local` and `/play-local` are the same screen under two names; both need
+  // the wide layout, or the board is squeezed into the narrow reading column.
   const inGame =
     route.name === 'play-bot' ||
     route.name === 'play-local' ||
+    route.name === 'local' ||
     route.name === 'room' ||
     route.name === 'replay';
 
@@ -79,11 +82,14 @@ function Screen({ route }: { route: Route }): ReactNode {
         ? (route.level as BotLevel)
         : 'medium';
       const seats = route.seats === 4 ? 4 : 2;
-      return <PlayLocal key={`${level}-${seats}`} botLevel={level} seats={seats} />;
+      const mode = route.mode ?? 'duel';
+      return (
+        <PlayLocal key={`${level}-${seats}-${mode}`} botLevel={level} seats={seats} mode={mode} />
+      );
     }
     case 'play-local':
     case 'local':
-      return <PlayLocal botLevel={null} />;
+      return <PlayLocal key={route.mode ?? 'duel'} botLevel={null} mode={route.mode ?? 'duel'} />;
     case 'lobby':
       return <Lobby />;
     case 'quick':

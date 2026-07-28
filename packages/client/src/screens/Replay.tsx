@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import {
+  rowsFor,
   Game,
   MoveKind,
   moveName,
@@ -72,7 +73,7 @@ export function Replay({ id }: { id: string }): ReactNode {
   }, [id]);
 
   const moves = useMemo(
-    () => (match ? parseTranscript(match.transcript, match.config.size) : []),
+    () => (match ? parseTranscript(match.transcript, rowsFor(match.config), match.config.size) : []),
     [match],
   );
   const seatCount = match?.config.players ?? 2;
@@ -301,7 +302,7 @@ export function Replay({ id }: { id: string }): ReactNode {
                   row={row}
                   seats={seatCount}
                   moves={moves}
-                  size={match.config.size}
+                  rows={rowsFor(match.config)}
                   ply={ply}
                   review={review}
                   onSelect={(p) => {
@@ -347,7 +348,7 @@ export function Replay({ id }: { id: string }): ReactNode {
                 {current ? (
                   <p className="tiny muted" style={{ margin: 0 }}>
                     {t.profile.bestMove}:{' '}
-                    <span className="mono">{moveName(current.best, match.config.size)}</span>
+                    <span className="mono">{moveName(current.best, rowsFor(match.config))}</span>
                     {current.loss > 15 ? (
                       <>
                         {' · '}
@@ -424,7 +425,7 @@ function ReplayRow({
   row,
   seats,
   moves,
-  size,
+  rows,
   ply,
   review,
   onSelect,
@@ -432,7 +433,7 @@ function ReplayRow({
   row: number;
   seats: number;
   moves: ReturnType<typeof parseTranscript>;
-  size: number;
+  rows: number;
   ply: number;
   review: (MoveReview | null)[];
   onSelect(ply: number): void;
@@ -453,7 +454,7 @@ function ReplayRow({
         onClick={() => onSelect(index + 1)}
         title={r ? `${r.quality} · ${(r.loss / 110).toFixed(1)}` : undefined}
       >
-        {moveName(move, size)}
+        {moveName(move, rows)}
         {mark ? (
           <span style={{ color: r ? QUALITY_COLOR[r.quality] : undefined, fontWeight: 800 }}>
             {mark}

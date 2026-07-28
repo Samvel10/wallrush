@@ -12,9 +12,11 @@
   width: 100%;
   /* Leave room for the seat strips, turn banner and toolbar so the whole
      game fits a short laptop screen without scrolling. */
-  max-width: min(66vh, 680px);
+  /* A race track is taller than it is wide, so the height budget has to come
+     from the board's own shape rather than a hard-coded square. */
+  max-width: min(calc(66vh * var(--board-aspect, 1)), 680px);
   margin-inline: auto;
-  aspect-ratio: 1;
+  aspect-ratio: var(--board-aspect, 1);
   border-radius: var(--radius-xl);
   padding: clamp(8px, 1.6cqw, 16px);
   background: var(--board-bg);
@@ -98,6 +100,11 @@
 .cell.is-goal-3 {
   background: color-mix(in oklab, var(--p3) 14%, var(--board-cell));
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--p3) 22%, transparent);
+}
+/* The shared finish of a race: one line both racers are running for. */
+.cell.is-finish {
+  background: color-mix(in oklab, var(--success) 16%, var(--board-cell));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--success) 26%, transparent);
 }
 .cell.is-last-move {
   box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent);
@@ -785,4 +792,14 @@
   .game-layout {
     grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
   }
+}
+
+/* Two people, one screen, sitting opposite each other. The player on the far
+   side of the table gets their own toolbar above the board, turned round so
+   it reads the right way up from where they are sitting. */
+.game-toolbar.is-mirrored {
+  transform: rotate(180deg);
+}
+.game-toolbar.is-dimmed {
+  opacity: 0.45;
 }

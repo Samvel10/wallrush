@@ -21,6 +21,15 @@ export interface Settings {
   showPath: boolean;
   /** Two-tap confirmation. Defaults to on for touch devices. */
   confirmMoves: boolean;
+  /**
+   * Whether a shared-device game turns the board round between turns.
+   *
+   * Off by default: two people playing on one device usually sit across from
+   * each other, and a board that spins on every move is disorienting for both
+   * of them. With it off, the player sitting opposite gets their own controls,
+   * the right way up for their side of the table.
+   */
+  rotateBoard: boolean;
 }
 
 const STORAGE_KEY = 'wallrush.settings';
@@ -39,6 +48,7 @@ function defaults(): Settings {
     showCoordinates: false,
     showPath: false,
     confirmMoves: isTouchFirst(),
+    rotateBoard: false,
   };
 }
 

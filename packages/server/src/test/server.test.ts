@@ -340,6 +340,63 @@ test('a player who was offline when the game ended still gets the result', async
   back.close();
 });
 
+test('a race room is a fixed track the client cannot reshape', async () => {
+  const a = await TestClient.connect(server.url);
+  await a.waitFor('welcome');
+
+  // Ask for a race and try to smuggle in a different board at the same time.
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { mode: 'race', size: 5, players: 4 },
+    rated: false,
+  });
+  const created = await a.waitFor('room');
+  assert.equal(created.room.config.mode, 'race');
+  assert.equal(created.room.config.size, 9, 'the track width is not the client\'s to pick');
+  assert.equal(created.room.config.rows, 13);
+  assert.equal(created.room.config.players, 2, 'a race is run by two');
+  assert.equal(created.room.config.wallsPerPlayer, 15);
+  a.close();
+});
+
+test('both racers start on the same edge and share one finish', async () => {
+  const a = await TestClient.connect(server.url);
+  const b = await TestClient.connect(server.url);
+  await a.waitFor('welcome');
+  await b.waitFor('welcome');
+
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { mode: 'race', clockMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+  });
+  const created = await a.waitFor('room');
+  b.send({ t: 'room.join', code: created.room.code });
+  await b.waitFor('room', (m) => m.room.seats[1].user !== null);
+  a.send({ t: 'room.ready', ready: true });
+  b.send({ t: 'room.ready', ready: true });
+  const start = await a.waitFor('game.start');
+  await b.waitFor('game.start');
+
+  const game = Game.fromState(start.state);
+  assert.equal(game.rows, 13);
+  assert.equal(game.cols, 9);
+  assert.deepEqual(
+    game.players.map((p) => p.pos),
+    [
+      { r: 12, c: 2 },
+      { r: 12, c: 6 },
+    ],
+  );
+  assert.equal(game.players[0].side, game.players[1].side);
+  assert.equal(game.distanceFor(0), game.distanceFor(1));
+
+  a.close();
+  b.close();
+});
+
 test('a bot fills a seat and plays on its own', async () => {
   const host = await TestClient.connect(server.url);
   await host.waitFor('welcome');

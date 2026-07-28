@@ -18,50 +18,54 @@ export function fileOf(c: number): string {
   return FILES[c] ?? '?';
 }
 
-export function rankOf(r: number, size: number): number {
-  return size - r;
+export function rankOf(r: number, rows: number): number {
+  return rows - r;
 }
 
-export function squareName(pos: Pos, size: number): string {
-  return `${fileOf(pos.c)}${rankOf(pos.r, size)}`;
+export function squareName(pos: Pos, rows: number): string {
+  return `${fileOf(pos.c)}${rankOf(pos.r, rows)}`;
 }
 
-export function wallName(w: Wall, size: number): string {
+export function wallName(w: Wall, rows: number): string {
   // Intersection (r,c) sits between rows r/r+1 and columns c/c+1. Its anchor
   // square is the cell below-left of the intersection: (r+1, c).
-  return `${fileOf(w.c)}${rankOf(w.r + 1, size)}${w.o === 0 ? 'h' : 'v'}`;
+  return `${fileOf(w.c)}${rankOf(w.r + 1, rows)}${w.o === 0 ? 'h' : 'v'}`;
 }
 
-export function moveName(move: Move, size: number): string {
+/**
+ * Names carry the board height, not its width: a rank counts up from the
+ * bottom, and a race track is taller than it is wide.
+ */
+export function moveName(move: Move, rows: number): string {
   return move.kind === MoveKind.Step
-    ? squareName(move.to, size)
-    : wallName(move.wall, size);
+    ? squareName(move.to, rows)
+    : wallName(move.wall, rows);
 }
 
-export function parseMove(text: string, size: number): Move | null {
+export function parseMove(text: string, rows: number, cols = rows): Move | null {
   const t = text.trim().toLowerCase();
   const m = /^([a-p])(\d{1,2})([hv])?$/.exec(t);
   if (!m) return null;
   const c = FILES.indexOf(m[1]);
   const rank = Number(m[2]);
-  if (c < 0 || c >= size || rank < 1 || rank > size) return null;
-  const r = size - rank;
+  if (c < 0 || c >= cols || rank < 1 || rank > rows) return null;
+  const r = rows - rank;
   if (!m[3]) return { kind: MoveKind.Step, to: { r, c } };
   const wr = r - 1;
-  if (wr < 0 || wr > size - 2 || c > size - 2) return null;
+  if (wr < 0 || wr > rows - 2 || c > cols - 2) return null;
   return { kind: MoveKind.Wall, wall: { r: wr, c, o: m[3] === 'h' ? 0 : 1 } };
 }
 
 /** Full game transcript, one token per half-move. */
-export function transcript(moves: Move[], size: number): string {
-  return moves.map((m) => moveName(m, size)).join(' ');
+export function transcript(moves: Move[], rows: number): string {
+  return moves.map((m) => moveName(m, rows)).join(' ');
 }
 
-export function parseTranscript(text: string, size: number): Move[] {
+export function parseTranscript(text: string, rows: number, cols = rows): Move[] {
   const out: Move[] = [];
   for (const token of text.split(/\s+/)) {
     if (!token) continue;
-    const move = parseMove(token, size);
+    const move = parseMove(token, rows, cols);
     if (move) out.push(move);
   }
   return out;

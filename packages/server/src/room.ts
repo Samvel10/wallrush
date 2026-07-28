@@ -16,11 +16,13 @@ import {
   DEFAULT_CONFIG,
   Game,
   MoveKind,
+  RACE_ROWS,
   transcript,
   type BotLevel,
   type ChatLine,
   type GameConfig,
   type GameEnding,
+  type GameMode,
   type Move,
   type PublicUser,
   type RoomInfo,
@@ -322,7 +324,13 @@ export class Room {
       if (seat.bot) {
         this.bots.set(
           seat.index,
-          new Bot(seat.bot, this.config.size, this.config.players, (Math.random() * 2 ** 31) | 0),
+          new Bot(
+            seat.bot,
+            this.config.size,
+            this.config.players,
+            (Math.random() * 2 ** 31) | 0,
+            this.game.rows,
+          ),
         );
       }
     }
@@ -470,6 +478,10 @@ export class Room {
   private startTicking(): void {
     this.stopTicking();
     this.tickTimer = setInterval(() => this.tick(), 1000);
+    // A clock is not a reason to keep the process alive. Without this an
+    // abandoned room's ticker holds Node open forever — which is how the test
+    // suite came to hang after its last assertion.
+    this.tickTimer.unref?.();
   }
 
   private stopTicking(): void {
@@ -522,7 +534,7 @@ export class Room {
    */
   private forceMove(seat: number, _reason: string): void {
     if (!this.game) return;
-    const helper = new Bot('medium', this.config.size, this.config.players);
+    const helper = new Bot('medium', this.config.size, this.config.players, undefined, this.game.rows);
     const pick = helper.choose(this.game, { strict: true, timeMs: 120 });
     this.playMove(null, pick.move, seat);
   }
@@ -539,6 +551,7 @@ export class Room {
     // A short, level-dependent pause keeps bot play readable rather than instant.
     const delay = profile.minThinkMs + Math.floor(Math.random() * 220);
     this.botTimer = setTimeout(() => this.runBot(seat.index), delay);
+    this.botTimer.unref?.();
   }
 
   private runBot(seatIndex: number): void {
@@ -644,7 +657,7 @@ export class Room {
           ending,
           transcript: transcript(
             game.history.map((h) => h.move),
-            this.config.size,
+            game.rows,
           ),
           config_json: JSON.stringify(this.config),
           players_json: JSON.stringify(
@@ -771,11 +784,17 @@ const ALLOWED_SIZES = new Set([5, 7, 9, 11]);
 
 export function normaliseConfig(patch?: Partial<GameConfig>): GameConfig {
   const merged = { ...DEFAULT_CONFIG, ...patch };
-  const size = ALLOWED_SIZES.has(merged.size) ? merged.size : 9;
-  const players = merged.players === 4 ? 4 : 2;
-  const base = cloneConfig({ size, players });
-  const walls = Number.isFinite(merged.wallsPerPlayer)
-    ? Math.max(0, Math.min(20, Math.round(merged.wallsPerPlayer)))
+  const mode: GameMode = merged.mode === 'race' ? 'race' : 'duel';
+  // A race is a fixed track: one shape, two seats. Letting a client pick the
+  // dimensions here would let it hand itself a shorter run than its opponent.
+  const size = mode === 'race' ? 9 : ALLOWED_SIZES.has(merged.size) ? merged.size : 9;
+  const players = mode === 'race' ? 2 : merged.players === 4 ? 4 : 2;
+  const base = cloneConfig({ size, players, mode });
+  // The caller's own choice wins; otherwise the mode decides, and merging the
+  // defaults in first would hide "I did not ask" behind the duel's ten walls.
+  const asked = patch?.wallsPerPlayer;
+  const walls = Number.isFinite(asked)
+    ? Math.max(0, Math.min(20, Math.round(asked as number)))
     : base.wallsPerPlayer;
   const clockMs = clampNumber(merged.clockMs, 0, 60 * 60 * 1000, DEFAULT_CONFIG.clockMs);
   const incrementMs = clampNumber(merged.incrementMs, 0, 60 * 1000, DEFAULT_CONFIG.incrementMs);
@@ -785,7 +804,16 @@ export function normaliseConfig(patch?: Partial<GameConfig>): GameConfig {
     10 * 60 * 1000,
     DEFAULT_CONFIG.moveTimeoutMs,
   );
-  return { size, players, wallsPerPlayer: walls, clockMs, incrementMs, moveTimeoutMs };
+  return {
+    size,
+    mode,
+    ...(mode === 'race' ? { rows: RACE_ROWS } : {}),
+    players,
+    wallsPerPlayer: walls,
+    clockMs,
+    incrementMs,
+    moveTimeoutMs,
+  };
 }
 
 function clampNumber(value: number, min: number, max: number, fallback: number): number {

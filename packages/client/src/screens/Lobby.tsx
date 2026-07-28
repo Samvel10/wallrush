@@ -134,7 +134,9 @@ export function Lobby(): ReactNode {
                   <span className="tile-sub">
                     {players.map((s) => s.user?.name ?? (s.bot ? '🤖' : '')).join(' · ') || '—'}
                     {' · '}
-                    {room.config.size}×{room.config.size}
+                    {room.config.mode === 'race'
+                      ? `🏁 ${t.setup.race}`
+                      : `${room.config.size}×${room.config.size}`}
                     {room.rated ? ' · ★' : ''}
                   </span>
                 </span>

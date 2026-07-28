@@ -458,7 +458,12 @@ export function Room({ code }: { code: string }): ReactNode {
 function RoomSetup({ room, isHost }: { room: RoomInfo; isHost: boolean }): ReactNode {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const summary = `${room.config.size}×${room.config.size} · ${room.config.wallsPerPlayer} ${t.game.walls} · ${
+  // A race has one shape, so its name says more than "9×13" would.
+  const shape =
+    room.config.mode === 'race'
+      ? `🏁 ${t.setup.race}`
+      : `${room.config.size}×${room.config.size}`;
+  const summary = `${shape} · ${room.config.wallsPerPlayer} ${t.game.walls} · ${
     room.config.clockMs > 0
       ? `${Math.round(room.config.clockMs / 60000)} ${t.setup.minutes}`
       : t.setup.unlimited

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 
-import { BOT_LEVELS, BOT_RATING, type BotLevel } from '@wallrush/shared';
+import { BOT_LEVELS, BOT_RATING, type BotLevel, type GameMode } from '@wallrush/shared';
 
 import { useI18n } from '../i18n/index.js';
 import { useRouter } from '../state/router.js';
@@ -28,6 +28,7 @@ export function BotPicker(): ReactNode {
   const { t } = useI18n();
   const { go, back } = useRouter();
   const [seats, setSeats] = useState<2 | 4>(2);
+  const [mode, setMode] = useState<GameMode>('duel');
 
   return (
     <div className="stack">
@@ -37,6 +38,28 @@ export function BotPicker(): ReactNode {
       </div>
 
       <div className="segmented segmented-block">
+        <button
+          type="button"
+          className="segmented-item"
+          aria-pressed={mode === 'duel'}
+          onClick={() => setMode('duel')}
+        >
+          <span className="seg-emoji">⚔️</span> {t.setup.duel}
+        </button>
+        <button
+          type="button"
+          className="segmented-item"
+          aria-pressed={mode === 'race'}
+          onClick={() => setMode('race')}
+        >
+          <span className="seg-emoji">🏁</span> {t.setup.race}
+        </button>
+      </div>
+      <p className="tiny faint" style={{ margin: 0 }}>
+        {mode === 'race' ? t.setup.raceHint : t.setup.duelHint}
+      </p>
+
+      <div className="segmented segmented-block" hidden={mode === 'race'}>
         {([2, 4] as const).map((n) => (
           <button
             key={n}
@@ -57,7 +80,9 @@ export function BotPicker(): ReactNode {
             type="button"
             className="tile"
             style={{ '--tile-tint': TINTS[level] } as React.CSSProperties}
-            onClick={() => go({ name: 'play-bot', level, seats })}
+            onClick={() =>
+              go({ name: 'play-bot', level, seats: mode === 'race' ? 2 : seats, mode })
+            }
           >
             <span className="tile-icon">{ICONS[level]}</span>
             <span className="tile-body">
