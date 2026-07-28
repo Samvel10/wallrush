@@ -940,6 +940,41 @@ test('an empty room is not advertised in the lobby', async () => {
   watcher.close();
 });
 
+test('a rematch after the opponent leaves reopens the table', async () => {
+  const a = await TestClient.connect(server.url);
+  const b = await TestClient.connect(server.url);
+  await a.waitFor('welcome');
+  await b.waitFor('welcome');
+
+  a.send({
+    t: 'room.create',
+    visibility: 'private',
+    config: { size: 5, wallsPerPlayer: 0, clockMs: 0, moveTimeoutMs: 0 },
+    rated: false,
+  });
+  const created = await a.waitFor('room');
+  b.send({ t: 'room.join', code: created.room.code });
+  await b.waitFor('room', (m) => m.room.seats[1].user !== null);
+  a.send({ t: 'room.ready', ready: true });
+  b.send({ t: 'room.ready', ready: true });
+  await a.waitFor('game.start');
+  await b.waitFor('game.start');
+
+  b.send({ t: 'game.resign' });
+  await a.waitFor('game.over');
+  b.close();
+  await new Promise((r) => setTimeout(r, 300));
+
+  // Asking for a rematch with nobody left must not silently do nothing.
+  a.send({ t: 'room.rematch' });
+  const reopened = await a.waitFor('room', (m) => m.room.status === 'waiting', 5000);
+  assert.equal(reopened.room.status, 'waiting', 'the table reopens for a new opponent');
+  assert.equal(reopened.room.seats[1].user, null, 'the empty seat is free again');
+  assert.equal(reopened.room.hostId, reopened.room.seats[0].user?.id ?? null);
+
+  a.close();
+});
+
 test('a malformed message does not take the connection down', async () => {
   const client = await TestClient.connect(server.url);
   await client.waitFor('welcome');

@@ -414,7 +414,28 @@ export class Room {
     const seat = this.seats.find((s) => s.userId === userId);
     if (!seat) return;
     seat.ready = true;
+
+    // Free the seats of anyone who is no longer here. Otherwise a rematch waits
+    // forever on a player who closed the tab, and the button does nothing with
+    // no explanation.
+    for (const s of this.seats) {
+      if (s.userId && s.userId !== userId && !this.members.has(s.userId)) {
+        s.userId = null;
+        s.ready = false;
+      }
+    }
+    if (!this.seats.some((s) => s.userId === this.hostId)) this.hostId = userId;
+
     const humans = this.seats.filter((s) => s.userId !== null);
+    const everySeatTaken = this.seats.every((s) => s.userId !== null || s.bot !== null);
+    if (!everySeatTaken) {
+      // Back to the waiting room, where the code is on screen and someone else
+      // can be invited.
+      this.status = 'waiting';
+      this.game = null;
+      this.emit({ type: 'update' });
+      return;
+    }
     if (humans.length > 0 && humans.every((s) => s.ready)) {
       // Swap sides so the first-move advantage alternates between games.
       const ids = this.seats.map((s) => s.userId);
