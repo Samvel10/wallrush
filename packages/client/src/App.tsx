@@ -4,7 +4,7 @@ import { BOT_LEVELS, type BotLevel } from '@wallrush/shared';
 
 import { FriendInvites, ReplacedNotice } from './components/Friends.js';
 import { UpdateNotice } from './components/UpdateNotice.js';
-import { BrandMark, LanguageSwitch } from './components/ui.js';
+import { BrandMark, LanguageSwitch, ThemeToggle } from './components/ui.js';
 import { useI18n } from './i18n/index.js';
 import { connection } from './net/socket.js';
 import { Auth, Leaderboard, ProfileScreen } from './screens/Account.js';
@@ -57,6 +57,7 @@ export function App(): ReactNode {
             <span>{t.app.title}</span>
           </button>
           <span className="grow" />
+          <ThemeToggle />
           <LanguageSwitch compact />
         </div>
       </header>

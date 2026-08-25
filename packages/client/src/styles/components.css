@@ -693,6 +693,29 @@
   flex: 0 0 auto;
 }
 
+.theme-toggle {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  font-size: 1rem;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.theme-toggle:hover {
+  background: var(--surface-hover);
+  border-color: var(--border);
+}
+.theme-toggle:active {
+  transform: scale(0.94);
+}
+
 /* -------------------------------------------------------------- bottom nav */
 
 .bottom-nav {

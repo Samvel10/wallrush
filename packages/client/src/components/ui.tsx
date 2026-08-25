@@ -13,6 +13,7 @@ import {
 } from 'react';
 
 import { LANGS, useI18n, dictionaryFor, type Lang } from '../i18n/index.js';
+import { useSettings } from '../state/settings.js';
 
 // ------------------------------------------------------------------- toasts
 
@@ -216,6 +217,25 @@ export function LanguageSwitch({ compact = false }: { compact?: boolean }): Reac
         </button>
       ))}
     </div>
+  );
+}
+
+/** A quick, persisted light/dark switch for the always-visible app header. */
+export function ThemeToggle(): ReactNode {
+  const { t } = useI18n();
+  const { resolvedTheme, set } = useSettings();
+  const switchingToDark = resolvedTheme === 'light';
+
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      aria-label={`${t.settings.theme}: ${switchingToDark ? t.profile.themeDark : t.profile.themeLight}`}
+      title={`${t.settings.theme}: ${switchingToDark ? t.profile.themeDark : t.profile.themeLight}`}
+      onClick={() => set('theme', switchingToDark ? 'dark' : 'light')}
+    >
+      <span aria-hidden="true">{switchingToDark ? '🌙' : '☀️'}</span>
+    </button>
   );
 }
 
