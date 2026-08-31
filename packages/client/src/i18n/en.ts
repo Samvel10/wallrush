@@ -40,6 +40,7 @@ export const en: Dictionary = {
     howToSub: 'The rules in one minute',
     install: 'Install the app',
     installSub: 'Opens from your home screen and works without a connection',
+    installIos: 'In Safari, tap Share (□↑), then Add to Home Screen.',
     installAction: 'Install',
     playersOnline: 'online',
     inGame: 'in game',

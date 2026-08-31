@@ -40,6 +40,7 @@ export const ru: Dictionary = {
     howToSub: 'Правила за минуту',
     install: 'Установи приложение',
     installSub: 'Открывается с главного экрана и работает без интернета',
+    installIos: 'В Safari нажми «Поделиться» (□↑), затем «На экран Домой».',
     installAction: 'Установить',
     playersOnline: 'онлайн',
     inGame: 'в игре',

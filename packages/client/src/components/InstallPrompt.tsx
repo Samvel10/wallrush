@@ -4,8 +4,8 @@
  * Chrome fires `beforeinstallprompt` when a site meets the install criteria
  * and lets you defer it; the deferred event is the only way to open the
  * dialog from a button of your own. Everything here is conditional on that
- * event, so browsers that do not fire it (Safari, and Chrome once the app is
- * installed) simply see nothing.
+ * event. Safari on iOS does not expose that event, so it gets its own compact
+ * instruction instead: Share → Add to Home Screen.
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
@@ -26,13 +26,20 @@ function alreadyInstalled(): boolean {
   );
 }
 
+function isIOS(): boolean {
+  const { userAgent, platform, maxTouchPoints } = window.navigator;
+  return /iPad|iPhone|iPod/.test(userAgent) || (platform === 'MacIntel' && maxTouchPoints > 1);
+}
+
 export function InstallPrompt(): ReactNode {
   const { t } = useI18n();
   const [event, setEvent] = useState<InstallEvent | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ios, setIos] = useState(false);
 
   useEffect(() => {
     if (alreadyInstalled()) return;
+    setIos(isIOS());
     const onPrompt = (e: Event) => {
       // Without this the browser shows its own banner on its own schedule,
       // which is easy to miss and impossible to place.
@@ -48,7 +55,7 @@ export function InstallPrompt(): ReactNode {
     };
   }, []);
 
-  if (!event) return null;
+  if (!event && !ios) return null;
 
   return (
     <div className="card row" style={{ gap: 10 }}>
@@ -58,28 +65,30 @@ export function InstallPrompt(): ReactNode {
       <span className="grow small">
         <span style={{ fontWeight: 600 }}>{t.home.install}</span>
         <br />
-        <span className="muted tiny">{t.home.installSub}</span>
+        <span className="muted tiny">{event ? t.home.installSub : t.home.installIos}</span>
       </span>
-      <button
-        type="button"
-        className="btn btn-sm btn-primary"
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            await event.prompt();
-            const { outcome } = await event.userChoice;
-            // The event is single-use whatever they chose.
-            if (outcome === 'accepted' || outcome === 'dismissed') setEvent(null);
-          } catch {
-            setEvent(null);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {t.home.installAction}
-      </button>
+      {event ? (
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await event.prompt();
+              const { outcome } = await event.userChoice;
+              // The event is single-use whatever they chose.
+              if (outcome === 'accepted' || outcome === 'dismissed') setEvent(null);
+            } catch {
+              setEvent(null);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {t.home.installAction}
+        </button>
+      ) : null}
     </div>
   );
 }

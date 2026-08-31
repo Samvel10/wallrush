@@ -1738,3 +1738,19 @@ audit trail-ը նախագծի ներսում։
 `data-theme="dark"`, theme-color-ը `#0d101d`, իսկ կոճակը առաջարկում է հետ
 անցնել «Լուսավոր» ռեժիմի։ `npm run typecheck` և `npm run build` երկուսն էլ
 հաջող ավարտվեցին։
+
+---
+
+### 2026-08-31 — Տեղադրում iOS և Android սարքերում
+
+WallRush-ն արդեն PWA էր՝ `manifest.webmanifest`, 192/512 px պատկերակներ,
+`display: "standalone"`, արտադրական service worker և Android-ի
+`beforeinstallprompt` install dialog։ Այսպիսով Android-ում օգտատերը շարունակում
+է տեսնել «Տեղադրել» կոճակը և հավելվածը տեղադրում է անմիջապես բրաուզերից։
+
+iOS-ի Safari-ն այդ browser event-ը չի տալիս, ու նախկինում iPhone/iPad
+օգտատերը install հուշում չէր տեսնում։ `InstallPrompt`-ին ավելացվեց iOS-ի
+հուսալի ճանաչում, ներառյալ iPadOS desktop user agent-ը, և տեղայնացված հրահանգ՝
+«Կիսվել» (□↑) → «Ավելացնել հիմնական էկրանին»։ Արդեն տեղադրված standalone
+հավելվածում քարտը չի ցուցադրվում։ Ստուգված են `npm run lint`, client
+typecheck, 25 client թեստ և production build՝ բոլորը հաջող։
