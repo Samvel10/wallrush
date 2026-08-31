@@ -41,6 +41,7 @@ export const ru: Dictionary = {
     install: 'Установи приложение',
     installSub: 'Открывается с главного экрана и работает без интернета',
     installIos: 'В Safari нажми «Поделиться» (□↑), затем «На экран Домой».',
+    installAndroid: 'Открой меню браузера (⋮) и выбери «Установить приложение».',
     installAction: 'Установить',
     playersOnline: 'онлайн',
     inGame: 'в игре',

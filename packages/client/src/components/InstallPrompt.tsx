@@ -17,6 +17,25 @@ interface InstallEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+let deferredInstall: InstallEvent | null = null;
+const installListeners = new Set<(event: InstallEvent | null) => void>();
+
+function publishInstallEvent(event: InstallEvent | null): void {
+  deferredInstall = event;
+  for (const listener of installListeners) listener(event);
+}
+
+// Keep this at module scope. `beforeinstallprompt` fires only once per page
+// visit, and a route change must not throw away the browser's one install
+// request before the player taps the button.
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    publishInstallEvent(event as InstallEvent);
+  });
+  window.addEventListener('appinstalled', () => publishInstallEvent(null));
+}
+
 function alreadyInstalled(): boolean {
   if (typeof window === 'undefined') return false;
   return (
@@ -31,31 +50,28 @@ function isIOS(): boolean {
   return /iPad|iPhone|iPod/.test(userAgent) || (platform === 'MacIntel' && maxTouchPoints > 1);
 }
 
+function isAndroid(): boolean {
+  return /Android/i.test(window.navigator.userAgent);
+}
+
 export function InstallPrompt(): ReactNode {
   const { t } = useI18n();
-  const [event, setEvent] = useState<InstallEvent | null>(null);
+  const [event, setEvent] = useState<InstallEvent | null>(() => deferredInstall);
   const [busy, setBusy] = useState(false);
   const [ios, setIos] = useState(false);
 
   useEffect(() => {
     if (alreadyInstalled()) return;
     setIos(isIOS());
-    const onPrompt = (e: Event) => {
-      // Without this the browser shows its own banner on its own schedule,
-      // which is easy to miss and impossible to place.
-      e.preventDefault();
-      setEvent(e as InstallEvent);
-    };
-    const onInstalled = () => setEvent(null);
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    window.addEventListener('appinstalled', onInstalled);
+    const onEvent = (next: InstallEvent | null) => setEvent(next);
+    installListeners.add(onEvent);
     return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt);
-      window.removeEventListener('appinstalled', onInstalled);
+      installListeners.delete(onEvent);
     };
   }, []);
 
-  if (!event && !ios) return null;
+  const android = !ios && isAndroid();
+  if (!event && !ios && !android) return null;
 
   return (
     <div className="card row" style={{ gap: 10 }}>
@@ -65,7 +81,9 @@ export function InstallPrompt(): ReactNode {
       <span className="grow small">
         <span style={{ fontWeight: 600 }}>{t.home.install}</span>
         <br />
-        <span className="muted tiny">{event ? t.home.installSub : t.home.installIos}</span>
+        <span className="muted tiny">
+          {event ? t.home.installSub : ios ? t.home.installIos : t.home.installAndroid}
+        </span>
       </span>
       {event ? (
         <button
@@ -78,9 +96,9 @@ export function InstallPrompt(): ReactNode {
               await event.prompt();
               const { outcome } = await event.userChoice;
               // The event is single-use whatever they chose.
-              if (outcome === 'accepted' || outcome === 'dismissed') setEvent(null);
+              if (outcome === 'accepted' || outcome === 'dismissed') publishInstallEvent(null);
             } catch {
-              setEvent(null);
+              publishInstallEvent(null);
             } finally {
               setBusy(false);
             }

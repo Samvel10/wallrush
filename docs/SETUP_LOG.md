@@ -1760,3 +1760,19 @@ through web install`) և production deploy-ը անցավ lint/typecheck/full tes
 gate-ով։ Արտադրական `https://wallrush.duckdns.org/api/health` endpoint-ը
 վերագործարկումից հետո վերադարձնում է `200` (`uptime: 9`, `playing: 0`), իսկ
 կայքը մատուցում է նոր `index-QT9aL_UQ.js` bundle-ը։
+
+---
+
+### 2026-08-31 — Install կոճակի հուսալիություն
+
+Օգտատերը հայտնեց, որ ստորին install կոճակը չի աշխատում։ Պատճառը՝
+`beforeinstallprompt` event-ը պահվում էր միայն `Home` screen-ի React effect-ում։
+Այն browser-ը տալիս է մեկ անգամ, ու route-ի փոփոխությունից կամ event-ի վաղ
+ժամանումից հետո կոճակը կարող էր այլևս չունենալ օգտագործելի native prompt։
+
+Event-ի պահումը տեղափոխվեց `InstallPrompt` module-ի մակարդակ․ event-ը մնում է
+կենդանի ամբողջ էջի այցի ընթացքում և բաժանորդներին փոխանցվում է անկախ screen-ի
+mount/unmount-ից։ Android-ում, եթե browser-ը native dialog չի տալիս, հիմա
+ցուցադրվում է ուղիղ fallback՝ ընտրացանկ (⋮) → «Տեղադրել հավելվածը»։ iOS-ի
+Safari հրահանգը պահպանվեց։ `npm run lint`, client typecheck, 25 client թեստ
+և production build-ը հաջող ավարտվեցին։
