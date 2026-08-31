@@ -1754,3 +1754,9 @@ iOS-ի Safari-ն այդ browser event-ը չի տալիս, ու նախկինու�
 «Կիսվել» (□↑) → «Ավելացնել հիմնական էկրանին»։ Արդեն տեղադրված standalone
 հավելվածում քարտը չի ցուցադրվում։ Ստուգված են `npm run lint`, client
 typecheck, 25 client թեստ և production build՝ բոլորը հաջող։
+
+**Տեղադրում.** Փոփոխությունը commit/push արվեց `284f34f`-ով (`Guide iOS users
+through web install`) և production deploy-ը անցավ lint/typecheck/full test
+gate-ով։ Արտադրական `https://wallrush.duckdns.org/api/health` endpoint-ը
+վերագործարկումից հետո վերադարձնում է `200` (`uptime: 9`, `playing: 0`), իսկ
+կայքը մատուցում է նոր `index-QT9aL_UQ.js` bundle-ը։
