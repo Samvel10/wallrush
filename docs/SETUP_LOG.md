@@ -1781,3 +1781,21 @@ Safari հրահանգը պահպանվեց։ `npm run lint`, client typecheck, 2
 արտադրական կայք։ Վերջնական ստուգում՝ `https://wallrush.duckdns.org/api/health`
 → `200`, `uptime: 22`, `playing: 0`; գլխավոր էջը մատուցում է նոր
 `index-CcWNrEm7.js` bundle-ը։
+
+---
+
+### 2026-08-31 — Բնիկ Android և iOS հավելվածների հիմք
+
+PWA-ից բացի ստեղծվեց Capacitor 8 native shell՝ `android/` Gradle նախագծով և
+`ios/` Xcode նախագծով։ Երկուսն էլ նույն React client-ը փաթեթավորում են, իսկ
+`mobile:sync` script-ը նախ builds է shared engine-ը, հետո client-ը
+`VITE_API_BASE=https://wallrush.duckdns.org` արժեքով, որպեսզի APK/IPA-ի ներսի
+խաղը միանա կենդանի API/WebSocket սերվերին, ոչ թե սարքի `localhost`-ին։
+
+Ավելացվեցին `mobile:sync`, `mobile:android`, `mobile:ios` հրամանները և
+`capacitor.config.ts` (`org.wallrush.app`)։ `npx cap doctor`-ը Android
+կարգավորումը ճանաչում է ճիշտ, սակայն այս Linux համակարգում Java/Android SDK և
+Xcode չկան։ Ուստի native source-ը պատրաստ է, բայց այս մեքենան չի կարող ստեղծել
+ստորագրված APK/AAB կամ iOS IPA։ Android release-ի համար պետք է JDK 21 + Android
+SDK + signing keystore, iOS-ի համար՝ macOS/Xcode և Apple Developer signing
+certificate/provisioning profile։
