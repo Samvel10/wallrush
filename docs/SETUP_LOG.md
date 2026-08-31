@@ -1776,3 +1776,8 @@ mount/unmount-ից։ Android-ում, եթե browser-ը native dialog չի տալ
 ցուցադրվում է ուղիղ fallback՝ ընտրացանկ (⋮) → «Տեղադրել հավելվածը»։ iOS-ի
 Safari հրահանգը պահպանվեց։ `npm run lint`, client typecheck, 25 client թեստ
 և production build-ը հաջող ավարտվեցին։
+
+**Տեղադրում.** Fix-ը commit/push արվեց `1984561`-ով և deploy եղավ
+արտադրական կայք։ Վերջնական ստուգում՝ `https://wallrush.duckdns.org/api/health`
+→ `200`, `uptime: 22`, `playing: 0`; գլխավոր էջը մատուցում է նոր
+`index-CcWNrEm7.js` bundle-ը։
