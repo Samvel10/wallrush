@@ -1821,7 +1821,7 @@ certificate/provisioning profile։
 mobile-first դիզայնից հետո՝ պատասխանատու CSS շերտերի, մաքուր game layout-ի և
 մեկ-հպումանի input-ի իրականացումն է։
 
-### 2026-09-23T19:49:00+04:00 — Responsive layout and touch implementation
+### 2026-09-23 — Responsive layout and touch implementation
 
 User approved the visual direction and explicitly requested GitHub push and production activation. Fixed the root layout defect: `.stack-sm` and `.stack-lg` previously defined only gap, without a flex layout. Added shared layout rules, responsive home cards, consistent control sizing, fixed bottom navigation, readable mobile inputs, and a board sized by available width. Preserved the existing light/dark palette.
 
@@ -1831,12 +1831,16 @@ Commands: `git status --short`, `git diff --check`, targeted `cat`/`sed`/`rg` of
 
 `npm run dev` started Vite on 5173; backend reported EADDRINUSE on 8787 (existing service). Browser preview attempt through the available in-app browser returned ERR_BLOCKED_BY_CLIENT for localhost, so local visual verification is not yet available. Production health returned OK with zero games playing. No deployment at this step.
 
-### 2026-09-23T19:52:00+04:00 — Release verification
+### 2026-09-23 — Release verification
 
 Full lint/typecheck/build/test chain passed. Extracted input preference migration into a pure helper and added two regression tests for legacy touch settings and persisted opt-ins. Repeated lint/typecheck/build and all 27 client tests after that change; all passed. `git diff --check` passed and `git fetch origin` succeeded. Preparing a scoped commit, excluding pre-existing AGENTS.md, graphify-out and scheduled_tasks.lock changes. Deployment uses the existing script and refuses restart if games are active.
 
-### 2026-09-23T19:57:00+04:00 — Production activation and visual follow-up
+### 2026-09-23 — Production activation and visual follow-up
 
 Pushed 708fbee to GitHub main and ran `bash scripts/deploy.sh --skip-build --skip-checks` using the already validated build. Deployment confirmed zero active games, HTTP health 200, HTTPS 200, and WebSocket 101 with a received frame. Browser review succeeded against production: desktop home, Armenian home at 390×844, same-device game in both themes, and profile/settings at 320×740. Clicking e2 once appended e2 to the move list and changed the active seat, confirming one-click behavior in the live UI. This is browser viewport testing, not a physical iOS/Android device test.
 
 The second visual pass found secondary text too faint in dark settings. Increased the shared secondary text contrast for both themes, including automatic dark mode. Preparing a follow-up build/push/deploy for that adjustment.
+
+### 2026-09-23 — Final deployment result
+
+Follow-up typecheck/build/full tests passed. Pushed baa7de6 and deployed the contrast refinement; health/HTTPS returned 200 and WebSocket returned 101 with a frame. Reloaded the production page successfully after deployment. Reset the temporary browser viewport. Stopped only the duplicate backend watcher started by this task after its port collision; existing backend and Vite preview were preserved. Documentation headings above use dates rather than estimated clock times.
