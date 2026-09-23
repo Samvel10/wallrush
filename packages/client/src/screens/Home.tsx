@@ -47,8 +47,8 @@ export function Home(): ReactNode {
   }, []);
 
   return (
-    <div className="stack-lg">
-      <header className="stack-sm" style={{ alignItems: 'center', textAlign: 'center' }}>
+    <div className="home stack-lg">
+      <header className="home-hero stack-sm">
         <BrandMark size={64} />
         <h1 style={{ fontSize: 'var(--text-3xl)', marginTop: 4 }}>{t.app.title}</h1>
         <p className="uppercase" style={{ marginTop: -4 }}>
@@ -67,7 +67,7 @@ export function Home(): ReactNode {
         ) : null}
       </header>
 
-      <div className="stack-sm">
+      <div className="home-actions stack-sm">
         {resumeCode ? (
           <Tile
             icon="↩"
@@ -84,13 +84,7 @@ export function Home(): ReactNode {
           sub={t.home.quickPlaySub}
           onClick={() => go({ name: 'quick' })}
         />
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: 'var(--space-2)',
-          }}
-        >
+        <div className="home-pair">
           <Tile
             icon="🌐"
             title={t.home.online}

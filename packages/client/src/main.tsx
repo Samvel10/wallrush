@@ -14,6 +14,7 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/board.css';
+import './styles/layout.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('missing #root');

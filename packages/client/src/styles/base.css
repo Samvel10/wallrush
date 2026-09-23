@@ -154,7 +154,9 @@ p {
   border: 0;
 }
 
-.stack {
+.stack,
+.stack-sm,
+.stack-lg {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -258,7 +260,7 @@ p {
 }
 
 .app-main.is-narrow {
-  max-width: 620px;
+  max-width: 760px;
 }
 
 .app-main.is-game {

@@ -1799,3 +1799,38 @@ Xcode չկան։ Ուստի native source-ը պատրաստ է, բայց այս 
 ստորագրված APK/AAB կամ iOS IPA։ Android release-ի համար պետք է JDK 21 + Android
 SDK + signing keystore, iOS-ի համար՝ macOS/Xcode և Apple Developer signing
 certificate/provisioning profile։
+
+---
+
+### 2026-09-23 — Մոբայլ UX և տեսողական հիմքի նախնական ախտորոշում
+
+Օգտատիրոջ հաղորդած երկու խնդիրները ուսումնասիրվեցին առանց ֆայլ փոփոխելու։
+Կրկնակի հպումը հայտնաբերվեց որպես գիտակցված, բայց այժմ ոչ ցանկալի վարք՝
+`packages/client/src/state/settings.tsx`-ի `defaults()` ֆունկցիան
+`confirmMoves: isTouchFirst()` է սահմանում։ `GameView`-ը այդ արժեքը փոխանցում
+է `Board`-ին, իսկ `Board.handleStep()`-ը հաստատման ռեժիմում առաջին հպումով միայն
+ընտրում է բջիջը և երկրորդ նույն հպումով է կատարում քայլը։ Նոր UX-ը պետք է
+լռելյայն անջատի հաստատումը՝ թողնելով այն որպես ընտրովի պաշտպանություն
+կարգավորումներում։
+
+Տեսողական աուդիտը ցույց տվեց, որ գունային token-ները և լուսավոր/մութ ռեժիմները
+կայուն հիմք ունեն, բայց layout-ի կանոնները ցրված են `base.css`, մեծ
+`components.css`, `board.css` և React inline-style-ների միջև։ Մասնավորապես,
+`board.css`-ի մոբայլ չափի հաշվարկում կա `100dvh - 392px` ֆիքսված պահում, որը
+կարճ էկրաններին կարող է չափից փոքրացնել խաղատախտակը։ Հաջորդ քայլը՝ հաստատված
+mobile-first դիզայնից հետո՝ պատասխանատու CSS շերտերի, մաքուր game layout-ի և
+մեկ-հպումանի input-ի իրականացումն է։
+
+### 2026-09-23T19:49:00+04:00 — Responsive layout and touch implementation
+
+User approved the visual direction and explicitly requested GitHub push and production activation. Fixed the root layout defect: `.stack-sm` and `.stack-lg` previously defined only gap, without a flex layout. Added shared layout rules, responsive home cards, consistent control sizing, fixed bottom navigation, readable mobile inputs, and a board sized by available width. Preserved the existing light/dark palette.
+
+Changed confirmation to opt-in and added inputVersion 2 persistence: legacy settings migrate once to single-tap; later explicit confirmation choices persist. Legacy explicit choices cannot be distinguished from automatic touch defaults, so this migration resets both once. Pointer cancellation now cancels wall placement rather than committing it.
+
+Commands: `git status --short`, `git diff --check`, targeted `cat`/`sed`/`rg` of settings, Board, styles, Home, App and deployment script. `npm run lint && npm run typecheck && npm run build && npm test` initially stopped at lint because previously generated native assets were included. Added precise ignores for Android/iOS bundled web output and reran the four checks with logs in `/tmp/wallrush-ui-{lint,types,build,tests}.log`.
+
+`npm run dev` started Vite on 5173; backend reported EADDRINUSE on 8787 (existing service). Browser preview attempt through the available in-app browser returned ERR_BLOCKED_BY_CLIENT for localhost, so local visual verification is not yet available. Production health returned OK with zero games playing. No deployment at this step.
+
+### 2026-09-23T19:52:00+04:00 — Release verification
+
+Full lint/typecheck/build/test chain passed. Extracted input preference migration into a pure helper and added two regression tests for legacy touch settings and persisted opt-ins. Repeated lint/typecheck/build and all 27 client tests after that change; all passed. `git diff --check` passed and `git fetch origin` succeeded. Preparing a scoped commit, excluding pre-existing AGENTS.md, graphify-out and scheduled_tasks.lock changes. Deployment uses the existing script and refuses restart if games are active.

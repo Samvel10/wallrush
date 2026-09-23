@@ -183,13 +183,18 @@ function BoardImpl({
       if (target) onWall(target);
       onDragFinish?.();
     };
+    const cancel = () => {
+      setPending(null);
+      onPreviewChange?.(null);
+      onDragFinish?.();
+    };
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', drop);
-    window.addEventListener('pointercancel', drop);
+    window.addEventListener('pointercancel', cancel);
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', drop);
-      window.removeEventListener('pointercancel', drop);
+      window.removeEventListener('pointercancel', cancel);
     };
   }, [
     dragOrientation,

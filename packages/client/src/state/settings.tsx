@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { wantsMoveConfirmation } from './input-preferences.js';
 
 export type Theme = 'auto' | 'light' | 'dark';
 
@@ -19,7 +20,7 @@ export interface Settings {
   animations: boolean;
   showCoordinates: boolean;
   showPath: boolean;
-  /** Two-tap confirmation. Defaults to on for touch devices. */
+  /** Optional two-tap confirmation; all devices default to a single tap. */
   confirmMoves: boolean;
   /**
    * Whether a shared-device game turns the board round between turns.
@@ -34,11 +35,6 @@ export interface Settings {
 
 const STORAGE_KEY = 'wallrush.settings';
 
-function isTouchFirst(): boolean {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
-}
-
 function defaults(): Settings {
   return {
     theme: 'auto',
@@ -47,7 +43,7 @@ function defaults(): Settings {
     animations: true,
     showCoordinates: false,
     showPath: false,
-    confirmMoves: isTouchFirst(),
+    confirmMoves: false,
     rotateBoard: false,
   };
 }
@@ -57,8 +53,10 @@ function load(): Settings {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return base;
-    const parsed = JSON.parse(raw) as Partial<Settings>;
-    return { ...base, ...parsed };
+    const parsed = JSON.parse(raw) as Partial<Settings> & { inputVersion?: number };
+    // Old touch defaults cannot be distinguished from an explicit choice.
+    // Migrate once to single tap; subsequent opt-ins remain persisted.
+    return { ...base, ...parsed, confirmMoves: wantsMoveConfirmation(parsed) };
   } catch {
     return base;
   }
@@ -103,7 +101,7 @@ export function SettingsProvider({ children }: { children: ReactNode }): ReactNo
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...settings, inputVersion: 2 }));
     } catch {
       /* storage may be unavailable in private mode */
     }

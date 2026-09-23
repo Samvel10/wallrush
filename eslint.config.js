@@ -18,6 +18,8 @@ export default tseslint.config(
     ignores: [
       '**/dist/**',
       '**/node_modules/**',
+      'android/app/src/main/assets/public/**',
+      'ios/App/App/public/**',
       'packages/client/public/sw.js',
       'eslint.config.js',
     ],

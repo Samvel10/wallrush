@@ -1,0 +1,69 @@
+/* Product layout: shared rhythm, readable surfaces and touch-sized controls. */
+.app-main { padding-top: 28px; gap: 24px; }
+.app-main > * { min-width: 0; }
+.topbar { padding-inline: max(16px, env(safe-area-inset-left)); }
+.topbar-inner { min-width: 0; gap: 10px; }
+.brand { min-height: 44px; }
+.theme-toggle { width: 44px; height: 44px; }
+.lang-switch button { min-width: 40px; min-height: 38px; padding-inline: 8px; }
+.card { box-shadow: var(--shadow-xs); }
+.card:not(.card-flush) { padding: clamp(16px, 3vw, 28px); }
+.card-tight { padding: 16px !important; }
+.home-hero { align-items: center; text-align: center; padding: 24px 12px 16px; }
+.home-hero h1 { letter-spacing: -0.045em; }
+.home-hero .uppercase { letter-spacing: 0.08em; line-height: 1.6; }
+.home-actions { gap: 14px; }
+.home-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.tile { min-height: 98px; padding: 22px; border-radius: 20px; box-shadow: var(--shadow-xs); }
+.tile-icon { align-self: center; width: 48px; height: 48px; border-radius: 16px; }
+.tile-title { line-height: 1.4; }
+.tile-sub { margin-top: 5px; line-height: 1.55; }
+.tile-hero { min-height: 122px; background: linear-gradient(120deg, var(--azure-600), var(--azure-500)); color: white; }
+.tile-hero .tile-icon, .tile-hero .tile-chevron { color: white; }
+.tile-hero .tile-sub { color: rgb(255 255 255 / 0.85); }
+.tile-hero .tile-title { font-size: var(--text-xl); }
+.btn { min-height: 46px; white-space: normal; line-height: 1.35; padding-block: 10px; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); color: var(--accent-text); }
+.btn-icon { flex-shrink: 0; padding: 0; }
+.input { font-size: 16px; }
+.segmented-item { min-height: 44px; white-space: normal; line-height: 1.35; padding-block: 8px; }
+.switch { min-height: 44px; }
+.bottom-nav { position: fixed; inset-inline: 0; }
+.bottom-nav-item { min-width: 0; min-height: 64px; gap: 5px; color: var(--text-muted); }
+.bottom-nav-item[aria-current='page'] { background: var(--accent-soft); }
+.bottom-nav-icon { font-size: 21px; }
+.game-stage { gap: 16px; }
+.game-side { min-width: 0; }
+.game-toolbar { flex-wrap: wrap; row-gap: 10px; }
+.board-frame { box-shadow: var(--shadow-md); }
+.modal { padding: clamp(20px, 5vw, 32px); }
+.table { overflow-wrap: anywhere; }
+
+@media (hover: hover) {
+  .tile:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+}
+@media (max-width: 600px) {
+  .app-main { padding-top: 20px; padding-inline: 16px; }
+  .app-main.is-game { padding-inline: 10px; }
+  .home-hero { padding-top: 12px; padding-bottom: 8px; }
+  .home-pair { grid-template-columns: minmax(0, 1fr); }
+  .tile { min-height: 90px; padding: 18px; gap: 14px; }
+  .tile-hero { min-height: 108px; }
+  .stack-lg { gap: 24px; }
+  .topbar-inner { gap: 6px; }
+  .brand { font-size: 16px; gap: 6px; }
+  .brand-mark { width: 26px; height: 26px; }
+  .lang-switch { gap: 0; padding: 2px; }
+  .lang-switch button { min-width: 34px; padding-inline: 6px; }
+  .theme-toggle { width: 40px; height: 44px; }
+  .game-toolbar .btn-sm, .wall-tray-btn { min-height: 44px; }
+  .board-frame { border-radius: 20px; padding: 8px; }
+  .seat-name { font-size: var(--text-sm); }
+}
+@media (max-width: 359px) {
+  .app-main { padding-inline: 12px; }
+  .topbar { padding-inline: 10px; }
+  .brand { font-size: 14px; }
+  .brand-mark { width: 22px; }
+  .tile { padding: 16px; }
+}
