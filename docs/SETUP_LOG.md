@@ -1834,3 +1834,9 @@ Commands: `git status --short`, `git diff --check`, targeted `cat`/`sed`/`rg` of
 ### 2026-09-23T19:52:00+04:00 — Release verification
 
 Full lint/typecheck/build/test chain passed. Extracted input preference migration into a pure helper and added two regression tests for legacy touch settings and persisted opt-ins. Repeated lint/typecheck/build and all 27 client tests after that change; all passed. `git diff --check` passed and `git fetch origin` succeeded. Preparing a scoped commit, excluding pre-existing AGENTS.md, graphify-out and scheduled_tasks.lock changes. Deployment uses the existing script and refuses restart if games are active.
+
+### 2026-09-23T19:57:00+04:00 — Production activation and visual follow-up
+
+Pushed 708fbee to GitHub main and ran `bash scripts/deploy.sh --skip-build --skip-checks` using the already validated build. Deployment confirmed zero active games, HTTP health 200, HTTPS 200, and WebSocket 101 with a received frame. Browser review succeeded against production: desktop home, Armenian home at 390×844, same-device game in both themes, and profile/settings at 320×740. Clicking e2 once appended e2 to the move list and changed the active seat, confirming one-click behavior in the live UI. This is browser viewport testing, not a physical iOS/Android device test.
+
+The second visual pass found secondary text too faint in dark settings. Increased the shared secondary text contrast for both themes, including automatic dark mode. Preparing a follow-up build/push/deploy for that adjustment.

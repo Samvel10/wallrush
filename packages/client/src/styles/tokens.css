@@ -124,7 +124,7 @@
 
   --text: var(--slate-900);
   --text-muted: var(--slate-500);
-  --text-faint: var(--slate-400);
+  --text-faint: var(--slate-500);
   --text-inverse: #ffffff;
 
   --accent: var(--azure-500);
@@ -185,7 +185,7 @@
 
   --text: #eef1f8;
   --text-muted: #9aa3bd;
-  --text-faint: #6b7490;
+  --text-faint: #9aa3bd;
   --text-inverse: var(--slate-950);
 
   --accent: var(--azure-400);
@@ -244,7 +244,7 @@
     --border-subtle: rgb(255 255 255 / 0.05);
     --text: #eef1f8;
     --text-muted: #9aa3bd;
-    --text-faint: #6b7490;
+    --text-faint: #9aa3bd;
     --text-inverse: var(--slate-950);
     --accent: var(--azure-400);
     --accent-hover: var(--azure-300);
