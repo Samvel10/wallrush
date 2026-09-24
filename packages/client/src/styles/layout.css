@@ -1,4 +1,20 @@
 /* Product layout: shared rhythm, readable surfaces and touch-sized controls. */
+.app-footer {
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-subtle);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.app-footer span { font-weight: 600; color: var(--text); }
+.app-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: 12px;
+  font-variant-numeric: tabular-nums;
+}
 .app-main { padding-top: 28px; gap: 24px; }
 .app-main > * { min-width: 0; }
 .topbar { padding-inline: max(16px, env(safe-area-inset-left)); }

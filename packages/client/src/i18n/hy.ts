@@ -8,6 +8,7 @@ export const hy = {
   },
 
   app: {
+    createdBy: 'Ստեղծող՝',
     title: 'WallRush',
     tagline: 'Փակի՛ր նրա ճանապարհը',
     description:

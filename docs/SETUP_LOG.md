@@ -1844,3 +1844,7 @@ The second visual pass found secondary text too faint in dark settings. Increase
 ### 2026-09-23 — Final deployment result
 
 Follow-up typecheck/build/full tests passed. Pushed baa7de6 and deployed the contrast refinement; health/HTTPS returned 200 and WebSocket returned 101 with a frame. Reloaded the production page successfully after deployment. Reset the temporary browser viewport. Stopped only the duplicate backend watcher started by this task after its port collision; existing backend and Vite preview were preserved. Documentation headings above use dates rather than estimated clock times.
+
+### 2026-09-24T09:21:58+04:00 — Shared creator/contact footer
+
+User requested public attribution and contact on every page: Samvel Khachatryan, 098213305. Inspected App, translation dictionaries, layout and Git status using `sed`, `head`, `tail`, and `git status --short`. Added a shared footer after every routed screen, including games; existing main bottom padding keeps it above fixed navigation. Added a 44px-high `tel:098213305` link and translated creator labels in Armenian, English and Russian. No new dependencies. Existing deployment authorization applies; verification and publication follow.

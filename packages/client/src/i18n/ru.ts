@@ -9,6 +9,7 @@ export const ru: Dictionary = {
   },
 
   app: {
+    createdBy: 'Создатель:',
     title: 'WallRush',
     tagline: 'Перекрой ему путь',
     description:

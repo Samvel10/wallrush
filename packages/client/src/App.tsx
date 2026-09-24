@@ -64,6 +64,10 @@ export function App(): ReactNode {
 
       <main className={`app-main${inGame ? ' is-game' : ' is-narrow'}`}>
         <Screen route={route} />
+        <footer className="app-footer">
+          <p>{t.app.createdBy} <span>Samvel Khachatryan</span></p>
+          <a href="tel:098213305">098213305</a>
+        </footer>
       </main>
 
       {!inGame ? <BottomNav /> : null}
