@@ -1854,3 +1854,5 @@ Verification: `npm run lint && npm run typecheck && npm run build && npm test` p
 ### 2026-09-24T09:39:29+04:00 — Footer visual refinement
 
 User requested a more beautiful footer and copy. Replaced the plain attribution with a theme-aware branded panel: existing logo/tagline, a creator credit, divider and touch-sized telephone card. Kept the exact name and dial target; formatted the displayed number as 098 213 305. Added translated contact labels and refined credit copy in all three dictionaries. CSS stacks the credit/contact on narrow screens and uses existing theme tokens. Inspected App/layout/dictionaries with `sed`, `head`, `rg`; verification and authorized publication follow.
+
+2026-09-24T09:42:02+04:00 — Lint, typecheck, build, full tests and diff whitespace checks passed. Pushed 58b3760 to GitHub and deployed the verified bundle with no active games. Health/HTTPS returned 200, WebSocket 101. Inspected the live footer screenshot at page bottom: brand, credit and telephone card render clearly above bottom navigation; accessibility state exposes the correct telephone link.
