@@ -9,7 +9,7 @@ export const en: Dictionary = {
   },
 
   app: {
-    createdBy: 'Crafted with care by',
+    createdBy: 'Design & development',
     contactCreator: 'Get in touch',
     title: 'WallRush',
     tagline: 'Block their way',
