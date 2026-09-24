@@ -9,7 +9,8 @@ export const en: Dictionary = {
   },
 
   app: {
-    createdBy: 'Created by',
+    createdBy: 'Crafted with care by',
+    contactCreator: 'Get in touch',
     title: 'WallRush',
     tagline: 'Block their way',
     description:
